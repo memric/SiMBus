@@ -7,8 +7,7 @@
 
 #include "simple_modbus.h"
 #include "simple_modbus_conf.h"
-#include "stm32f0xx_hal.h"
-#include "string.h"
+#include <string.h>
 
 #define MAX_MSG_LEN 256
 
@@ -25,8 +24,6 @@
 
 enum intfs_mode { RX, TX };
 
-extern UART_HandleTypeDef huart1;
-
 static uint8_t RxMsg[MAX_MSG_LEN];
 static uint8_t TxMsg[MAX_MSG_LEN];
 static uint8_t *RxByte;
@@ -40,12 +37,18 @@ static uint16_t ModRTU_CRC(uint8_t *buf, int len);
 static void SmplModbus_SendException(uint8_t func, MBerror excpt);
 static void SmplModbus_LolevelSend(uint8_t *data, uint32_t len);
 extern MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
+extern MBerror RegWriteCallback(uint16_t addr, uint16_t val);
 #if MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE
 extern MBerror CoilInpReadCallback(uint16_t addr, uint16_t num, uint8_t **coils);
-#endif
 extern MBerror CoilsInputsWriteCallback(uint16_t addr, uint16_t num, uint8_t *coils);
-extern MBerror RegWriteCallback(uint16_t addr, uint16_t val);
+#endif
+#if MODBUS_COILS_ENABLE
 extern MBerror CoilWriteCallback(uint16_t addr, uint8_t val);
+#endif
+extern MBerror RS485_ReceiveByte(uint8_t *b);
+extern MBerror RS485_Send(uint8_t *data, uint32_t len);
+extern MBerror RS485_AbortReceive(void);
+extern uint32_t MB_GetTick(void);
 
 void SmplModbus_Start(uint8_t addr)
 {
@@ -58,7 +61,7 @@ void SmplModbus_Start(uint8_t addr)
 
 	MBRTU_TRACE("Starting Modbus RTU with Address %d\r\n", Addr);
 
-	HAL_UART_Receive_IT(&huart1, RxMsg, 1);
+	RS485_ReceiveByte(RxByte);
 }
 
 
@@ -66,11 +69,11 @@ void SmplModbus_Poll(void)
 {
 	if (mbmode == RX)
 	{
-		if ((RxByte > RxMsg) && (HAL_GetTick() - last_rx_byte_time > 5))
+		if ((RxByte > RxMsg) && (MB_GetTick() - last_rx_byte_time > 5))
 		{
 			mbmode = TX;
 
-			HAL_UART_AbortReceive_IT(&huart1);
+			RS485_AbortReceive();
 
 			//HAL_Delay(2); //for silence period
 
@@ -80,7 +83,7 @@ void SmplModbus_Poll(void)
 
 			mbmode = RX;
 
-			HAL_UART_Receive_IT(&huart1, RxMsg, 1);
+			RS485_ReceiveByte(RxByte);
 		}
 	}
 	else
@@ -313,8 +316,7 @@ static void SmplModbus_SendException(uint8_t func, MBerror excpt)
 
 static void SmplModbus_LolevelSend(uint8_t *data, uint32_t len)
 {
-	//HAL_UART_Transmit_IT(&huart1, data, len);
-	HAL_UART_Transmit(&huart1, data, len, 10);
+	RS485_Send(data, len);
 
 	last_tx_time = HAL_GetTick();
 	//mbmode = RX;
@@ -341,7 +343,7 @@ static uint16_t ModRTU_CRC(uint8_t *buf, int len)
 }
 
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void ByteReceivedCallback(void)
 {
 	if (mbmode == RX)
 	{
@@ -353,27 +355,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			RxByte = RxMsg;
 		}
 
-		HAL_UART_Receive_IT(&huart1, RxByte, 1);
+		RS485_ReceiveByte(RxByte);
 		last_rx_byte_time = HAL_GetTick();
 	}
 }
 
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+void DataSentCallback(void)
 {
 	last_tx_time = HAL_GetTick();
 	mbmode = RX;
 }
 
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+void RS485ErrorCallback(void)
 {
-	uint32_t err = HAL_UART_GetError(huart);
-
-	if (err/* & HAL_UART_ERROR_ORE*/)
-	{
-		HAL_UART_AbortReceive_IT(&huart1);
-
-		RxByte = RxMsg;
-		mbmode = RX;
-		HAL_UART_Receive_IT(&huart1, RxMsg, 1);
-	}
+	RxByte = RxMsg;
+	mbmode = RX;
+	RS485_ReceiveByte(RxMsg);
 }

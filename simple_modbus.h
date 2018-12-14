@@ -15,10 +15,14 @@
 #define MODBUS_ERR_ILLEGFUNC 	1
 #define MODBUS_ERR_ILLEGADDR 	2
 #define MODBUS_ERR_ILLEGVAL  	3
+#define MODBUS_ERR_INTFS	  	10
 
 typedef uint8_t MBerror;
 
 void SmplModbus_Start(uint8_t addr);
 void SmplModbus_Poll(void);
+void ByteReceivedCallback(void);
+void DataSentCallback(void);
+void RS485ErrorCallback(void);
 
 #endif /* SIMPLE_MODBUS_H_ */
