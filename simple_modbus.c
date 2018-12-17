@@ -18,6 +18,7 @@
 #define MODBUS_FUNC_WRSCOIL  	5 	//Write single coil
 #define MODBUS_FUNC_WRSREG  	6 	//Write single register
 #define MODBUS_FUNC_WRMCOILS 	15  //Write multiple coils
+#define MODBUS_FUNC_WRMREGS 	16  //Write multiple registers
 
 #define ARR2U16(a)  (uint16_t) (*(a) << 8) | *( (a)+1 )
 #define U162ARR(b,a)  *(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
@@ -38,6 +39,7 @@ static void SmplModbus_SendException(uint8_t func, MBerror excpt);
 static void SmplModbus_LolevelSend(uint8_t *data, uint32_t len);
 extern MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
 extern MBerror RegWriteCallback(uint16_t addr, uint16_t val);
+extern MBerror RegMWriteCallback(uint16_t addr, uint16_t num, uint16_t *val);
 #if MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE
 extern MBerror CoilInpReadCallback(uint16_t addr, uint16_t num, uint8_t **coils);
 extern MBerror CoilsInputsWriteCallback(uint16_t addr, uint16_t num, uint8_t *coils);
@@ -296,6 +298,30 @@ static void SmplModbus_Parser(void)
 			}
 			break;
 #endif
+		case MODBUS_FUNC_WRMREGS: //write multiple registers
+			val = RxMsg[5]; //byte count
+			tmp_crc = ARR2U16(&RxMsg[6 + val]);
+			if (tmp_crc == ModRTU_CRC(RxMsg, 6 + val))
+			{
+				MBerror err = RegMWriteCallback(start_addr, points_num, (uint16_t*) &RxMsg[6]);
+				if (err)
+				{
+					//send exeption
+					SmplModbus_SendException(RxMsg[1], err);
+				}
+				else
+				{
+					for (int i = 0; i < 5; i++)
+					{
+						TxMsg[i] = RxMsg[i];
+					}
+					tmp_crc = ModRTU_CRC(TxMsg, 5);
+					U162ARR(tmp_crc, &TxMsg[5]);
+				}
+
+				SmplModbus_LolevelSend(TxMsg, 7);
+			}
+			break;
 
 			default: SmplModbus_SendException(RxMsg[1], MODBUS_ERR_ILLEGFUNC);
 		}
