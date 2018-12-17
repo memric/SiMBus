@@ -7,7 +7,7 @@
  *      Author: valeriychudnikov
  */
 
-//#include "stm32l0xx_hal.h"
+#include <stdint.h>
 
 #ifndef SIMPLE_MODBUS_CONF_H_
 #define SIMPLE_MODBUS_CONF_H_
@@ -17,12 +17,39 @@
 #define MODBUS_REGS_ENABLE		1	//Enable registers
 #define MODBUS_WRMCOILS_ENABLE	0	//Enable multiple coils write
 
-#define MODBUS_TRACE_ENABLE 		0	//Enable Trace
+#define MODBUS_TRACE_ENABLE 	0	//Enable Trace
+#define MAX_MSG_LEN 			256
+#define RESPONSE_TIMEOUT		100
 
 #if MODBUS_TRACE_ENABLE
 #define MBRTU_TRACE printf
 #else
 #define MBRTU_TRACE(message...)
 #endif
+
+#define ARR2U16(a)  (uint16_t) (*(a) << 8) | *( (a)+1 )
+#define U162ARR(b,a)  *(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
+
+/*Modbus function*/
+#define MODBUS_FUNC_RDCOIL 		1 	//Read Coil
+#define MODBUS_FUNC_RDDINP 		2 	//Read discrete input
+#define MODBUS_FUNC_RDHLDREGS 	3	//Read holding register
+#define MODBUS_FUNC_RDINREGS  	4 	//Read input register
+#define MODBUS_FUNC_WRSCOIL  	5 	//Write single coil
+#define MODBUS_FUNC_WRSREG  	6 	//Write single register
+#define MODBUS_FUNC_WRMCOILS 	15  //Write multiple coils
+#define MODBUS_FUNC_WRMREGS 	16  //Write multiple registers
+
+/*error codes*/
+#define MODBUS_ERR_OK 			0
+#define MODBUS_ERR_ILLEGFUNC 	1
+#define MODBUS_ERR_ILLEGADDR 	2
+#define MODBUS_ERR_ILLEGVAL  	3
+#define MODBUS_ERR_TIMEOUT		8
+#define MODBUS_ERR_VALUE	  	9
+#define MODBUS_ERR_INTFS	  	10
+#define MODBUS_ERR_MASTER		11
+
+typedef uint8_t MBerror;
 
 #endif /* SIMPLE_MODBUS_CONF_H_ */

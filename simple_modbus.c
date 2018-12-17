@@ -6,22 +6,8 @@
  */
 
 #include "simple_modbus.h"
-#include "simple_modbus_conf.h"
+#include "mb_crc.h"
 #include <string.h>
-
-#define MAX_MSG_LEN 256
-
-#define MODBUS_FUNC_RDCOIL 		1 	//Read Coil
-#define MODBUS_FUNC_RDDINP 		2 	//Read discrete input
-#define MODBUS_FUNC_RDHLDREGS 	3	//Read holding register
-#define MODBUS_FUNC_RDINREGS  	4 	//Read input register
-#define MODBUS_FUNC_WRSCOIL  	5 	//Write single coil
-#define MODBUS_FUNC_WRSREG  	6 	//Write single register
-#define MODBUS_FUNC_WRMCOILS 	15  //Write multiple coils
-#define MODBUS_FUNC_WRMREGS 	16  //Write multiple registers
-
-#define ARR2U16(a)  (uint16_t) (*(a) << 8) | *( (a)+1 )
-#define U162ARR(b,a)  *(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
 
 enum intfs_mode { RX, TX };
 
@@ -34,7 +20,6 @@ static enum intfs_mode mbmode;
 
 //static void SmplProto_SendError(uint8_t err);
 static void SmplModbus_Parser(void);
-static uint16_t ModRTU_CRC(uint8_t *buf, int len);
 static void SmplModbus_SendException(uint8_t func, MBerror excpt);
 static void SmplModbus_LolevelSend(uint8_t *data, uint32_t len);
 extern MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
@@ -344,30 +329,9 @@ static void SmplModbus_LolevelSend(uint8_t *data, uint32_t len)
 {
 	RS485_Send(data, len);
 
-	last_tx_time = HAL_GetTick();
+	last_tx_time = MB_GetTick();
 	//mbmode = RX;
 }
-
-static uint16_t ModRTU_CRC(uint8_t *buf, int len)
-{
-  uint16_t crc = 0xFFFF;
-
-  for (int pos = 0; pos < len; pos++) {
-    crc ^= (uint16_t) buf[pos];
-
-    for (int i = 8; i != 0; i--) {
-      if ((crc & 0x0001) != 0) {
-        crc >>= 1;
-        crc ^= 0xA001;
-      }
-      else
-        crc >>= 1;
-    }
-  }
-
-  return (uint16_t) ((crc << 8) & 0xff00) | ((crc >> 8) & 0xff);
-}
-
 
 void ByteReceivedCallback(void)
 {
@@ -382,13 +346,13 @@ void ByteReceivedCallback(void)
 		}
 
 		RS485_ReceiveByte(RxByte);
-		last_rx_byte_time = HAL_GetTick();
+		last_rx_byte_time = MB_GetTick();
 	}
 }
 
 void DataSentCallback(void)
 {
-	last_tx_time = HAL_GetTick();
+	last_tx_time = MB_GetTick();
 	mbmode = RX;
 }
 
