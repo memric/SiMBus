@@ -154,9 +154,6 @@ static void SmplModbus_Parser(void)
 #if MODBUS_REGS_ENABLE
 		case MODBUS_FUNC_RDHLDREGS:
 		case MODBUS_FUNC_RDINREGS: //read registers
-//			start_addr = (uint16_t) (RxMsg[2] << 8) | RxMsg[3];
-//			points_num = (uint16_t) (RxMsg[4] << 8) | RxMsg[5]; //chek for maximum 127!!
-//			tmp_crc = (uint16_t) (RxMsg[6] << 8) | RxMsg[7];
 			if (tmp_crc == ModRTU_CRC(RxMsg, 6))
 			{
 				//reg read callback
@@ -175,13 +172,9 @@ static void SmplModbus_Parser(void)
 					TxMsg[2] = points_num * 2;
 					for (int i = 0; i < points_num; i++)
 					{
-//						TxMsg[3 + 2*i] = (uint8_t) (reg_values[i] >> 8);
-//						TxMsg[3 + 2*i + 1] = (uint8_t) (reg_values[i] & 0xff);
 						U162ARR(reg_values[i], &TxMsg[3 + 2*i]);
 					}
 					tmp_crc = ModRTU_CRC(TxMsg, 3 + TxMsg[2]);
-//					TxMsg[3 + TxMsg[2]] = (uint8_t) (tmp_crc >> 8);
-//					TxMsg[3 + TxMsg[2] + 1] = (uint8_t) (tmp_crc & 0xff);
 					U162ARR(tmp_crc, &TxMsg[3 + TxMsg[2]]);
 				}
 
@@ -284,11 +277,11 @@ static void SmplModbus_Parser(void)
 			break;
 #endif
 		case MODBUS_FUNC_WRMREGS: //write multiple registers
-			val = RxMsg[5]; //byte count
-			tmp_crc = ARR2U16(&RxMsg[6 + val]);
-			if (tmp_crc == ModRTU_CRC(RxMsg, 6 + val))
+			val = RxMsg[6]; //byte count
+			tmp_crc = ARR2U16(&RxMsg[7 + val]);
+			if (tmp_crc == ModRTU_CRC(RxMsg, 7 + val))
 			{
-				MBerror err = RegMWriteCallback(start_addr, points_num, (uint16_t*) &RxMsg[6]);
+				MBerror err = RegMWriteCallback(start_addr, points_num, (uint16_t*) &RxMsg[7]);
 				if (err)
 				{
 					//send exeption
@@ -296,15 +289,15 @@ static void SmplModbus_Parser(void)
 				}
 				else
 				{
-					for (int i = 0; i < 5; i++)
+					for (int i = 0; i < 6; i++)
 					{
 						TxMsg[i] = RxMsg[i];
 					}
-					tmp_crc = ModRTU_CRC(TxMsg, 5);
-					U162ARR(tmp_crc, &TxMsg[5]);
+					tmp_crc = ModRTU_CRC(TxMsg, 6);
+					U162ARR(tmp_crc, &TxMsg[6]);
 				}
 
-				SmplModbus_LolevelSend(TxMsg, 7);
+				SmplModbus_LolevelSend(TxMsg, 8);
 			}
 			break;
 
