@@ -7,7 +7,7 @@ MBerror SiMasterWaitForResponse(mb_master_t *mb, uint32_t timeout);
 
 MBerror SiMasterInit(mb_master_t *mb)
 {
-	if (!mb->wait_for_resp && !mb->itfs_write)
+	if (!mb->wait_for_resp || !mb->itfs_write || !mb->rx_buf || !mb->tx_buf)
 	{
 		return MODBUS_ERR_MASTER;
 	}
@@ -19,6 +19,7 @@ MBerror SiMasterInit(mb_master_t *mb)
 	return MODBUS_ERR_OK;
 }
 
+/* Function 03 (0x03) Read Holding Registers*/
 MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t num, uint16_t *val)
 {
 	MBerror err = MODBUS_ERR_OK;
@@ -26,7 +27,7 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	if (num < 1 || num > 125) return MODBUS_ERR_VALUE;
 
 	U162ARR(addr, &mb->tx_buf[2]); //starting address
-	U162ARR(addr, &mb->tx_buf[4]); //Quantity of registers
+	U162ARR(num, &mb->tx_buf[4]); //Quantity of registers
 
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_RDHLDREGS, 4);
 
@@ -35,7 +36,7 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
 		return MODBUS_ERR_TIMEOUT;
 	}
 
@@ -49,12 +50,96 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 
 		if (mb->rx_buf[1] & 0x80)
 		{
-			return mb->rx_buf[1] ^ 0x80; //exception code
+			return (mb->rx_buf[1] ^ 0x80); //exception code
 		}
 	}
 	else
 	{
 		return MODBUS_ERR_VALUE; //may be another error?
+	}
+
+	return err;
+}
+
+/* Function 06 (0x06) Write Single Register*/
+MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t val)
+{
+	MBerror err = MODBUS_ERR_OK;
+	uint32_t i;
+
+	U162ARR(addr, &mb->tx_buf[2]); //address
+	U162ARR(val, &mb->tx_buf[4]); //value
+
+	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRSREG, 4);
+
+	if (err != MODBUS_ERR_OK) {
+		return err;
+	}
+
+	/*wait for response*/
+	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+		return MODBUS_ERR_TIMEOUT;
+	}
+
+	/*if exception*/
+	if (mb->rx_buf[1] & 0x80)
+	{
+		return (mb->rx_buf[1] ^ 0x80); //exception code
+	}
+
+	/*compare request and response. Must be the same*/
+	for (i = 0; i < 6; i++)
+	{
+		if (mb->rx_buf[i] != mb->tx_buf[i])
+		{
+			err = MODBUS_ERR_VALUE;
+			break;
+		}
+	}
+
+	return err;
+}
+
+/* Function 16 (0x10) Write Multiple Registers*/
+MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t num, uint16_t *val)
+{
+	MBerror err = MODBUS_ERR_OK;
+	uint32_t i;
+
+	if (num < 1 || num > 123) return MODBUS_ERR_VALUE;
+
+	U162ARR(addr, &mb->tx_buf[2]); //starting address
+	U162ARR(num, &mb->tx_buf[4]); //Quantity of registers
+	mb->tx_buf[6] = 2*num; //byte count
+
+	/*copy values to tx buffer*/
+	memcpy((void *) mb->tx_buf, (void *) val, 2*num);
+
+	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRMREGS, 5 + 2*num);
+
+	if (err != MODBUS_ERR_OK) {
+		return err;
+	}
+
+	/*wait for response*/
+	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+		return MODBUS_ERR_TIMEOUT;
+	}
+
+	/*if exception*/
+	if (mb->rx_buf[1] & 0x80)
+	{
+		return (mb->rx_buf[1] ^ 0x80); //exception code
+	}
+
+	/*compare first bytes of request and response*/
+	for (i = 0; i < 6; i++)
+	{
+		if (mb->rx_buf[i] != mb->tx_buf[i])
+		{
+			err = MODBUS_ERR_VALUE;
+			break;
+		}
 	}
 
 	return err;

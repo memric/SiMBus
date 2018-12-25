@@ -18,8 +18,8 @@
 #define MODBUS_WRMCOILS_ENABLE	0	//Enable multiple coils write
 
 #define MODBUS_TRACE_ENABLE 	0	//Enable Trace
-#define MAX_MSG_LEN 			256
-#define RESPONSE_TIMEOUT		100
+#define MODBUS_MAX_MSG_LEN 			256
+#define MODBUS_RESPONSE_TIMEOUT		100
 
 #if MODBUS_TRACE_ENABLE
 #define MBRTU_TRACE printf
