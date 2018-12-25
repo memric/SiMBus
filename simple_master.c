@@ -3,7 +3,8 @@
 #include <string.h>
 
 MBerror SiMasterPDUSend(mb_master_t *mb, uint8_t slave, uint8_t func, uint32_t len);
-MBerror SiMasterWaitForResponse(mb_master_t *mb, uint32_t timeout);
+MBerror SiMasterCheckException(mb_master_t *mb);
+MBerror SiMasterWaitForResponse(mb_master_t *mb, uint32_t len, uint32_t timeout);
 
 MBerror SiMasterInit(mb_master_t *mb)
 {
@@ -14,7 +15,7 @@ MBerror SiMasterInit(mb_master_t *mb)
 
 	mb->rx_byte = mb->rx_buf;
 
-	MBRTU_TRACE("Starting Modbus Master RTU\r\n");
+	MBRTU_TRACE("Starting ModBus Master RTU\r\n");
 
 	return MODBUS_ERR_OK;
 }
@@ -36,21 +37,31 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if (SiMasterWaitForResponse(mb, 3 + num*2 + 2,MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
 		return MODBUS_ERR_TIMEOUT;
 	}
 
 	if (mb->rx_buf[0] == slave)
 	{
-		if (mb->rx_buf[1] == MODBUS_FUNC_RDHLDREGS)
+		/*Check for exception*/
+		err = SiMasterCheckException(mb);
+
+		if (err != MODBUS_ERR_OK)
 		{
-			memcpy((void *) val, (void *) &mb->rx_buf[3], mb->rx_buf[2]); //copy values
-			return MODBUS_ERR_OK;
+			return err;
 		}
 
-		if (mb->rx_buf[1] & 0x80)
+		if (mb->rx_buf[1] == MODBUS_FUNC_RDHLDREGS)
 		{
-			return (mb->rx_buf[1] ^ 0x80); //exception code
+			/*Check CRC*/
+			if (ModRTU_CRC(mb->rx_buf, 3 + num*2) != ARR2U16(&mb->rx_buf[3 + num*2]))
+			{
+				return MODBUS_ERR_CRC;
+			}
+
+			/*Copy values*/
+			memcpy((void *) val, (void *) &mb->rx_buf[3], mb->rx_buf[2]);
+			return MODBUS_ERR_OK;
 		}
 	}
 	else
@@ -77,14 +88,22 @@ MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if (SiMasterWaitForResponse(mb, 6 + 2, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
 		return MODBUS_ERR_TIMEOUT;
 	}
 
-	/*if exception*/
-	if (mb->rx_buf[1] & 0x80)
+	/*Check for exception*/
+	err = SiMasterCheckException(mb);
+
+	if (err != MODBUS_ERR_OK)
 	{
-		return (mb->rx_buf[1] ^ 0x80); //exception code
+		return err;
+	}
+
+	/*Check CRC*/
+	if (ModRTU_CRC(mb->rx_buf, 6) != ARR2U16(&mb->rx_buf[6]))
+	{
+		return MODBUS_ERR_CRC;
 	}
 
 	/*compare request and response. Must be the same*/
@@ -122,14 +141,22 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if (SiMasterWaitForResponse(mb, 6 + 2, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
 		return MODBUS_ERR_TIMEOUT;
 	}
 
-	/*if exception*/
-	if (mb->rx_buf[1] & 0x80)
+	/*Check for exception*/
+	err = SiMasterCheckException(mb);
+
+	if (err != MODBUS_ERR_OK)
 	{
-		return (mb->rx_buf[1] ^ 0x80); //exception code
+		return err;
+	}
+
+	/*Check CRC*/
+	if (ModRTU_CRC(mb->rx_buf, 6) != ARR2U16(&mb->rx_buf[6]))
+	{
+		return MODBUS_ERR_CRC;
 	}
 
 	/*compare first bytes of request and response*/
@@ -157,7 +184,26 @@ MBerror SiMasterPDUSend(mb_master_t *mb, uint8_t slave, uint8_t func, uint32_t l
 	return mb->itfs_write(mb->tx_buf, len + 1 + 2);
 }
 
-MBerror SiMasterWaitForResponse(mb_master_t *mb, uint32_t timeout)
+/*Check is it exception in response*/
+MBerror SiMasterCheckException(mb_master_t *mb)
 {
-	return mb->wait_for_resp(timeout);
+	if (mb->rx_buf[1] & 0x80)
+	{
+		/*Check CRC*/
+		if (ModRTU_CRC(mb->rx_buf, 2) == ARR2U16(&mb->rx_buf[2]))
+		{
+			return (mb->rx_buf[1] ^ 0x80); //exception code
+		}
+		else
+		{
+			return MODBUS_ERR_CRC;
+		}
+	}
+
+	return MODBUS_ERR_OK;
+}
+
+MBerror SiMasterWaitForResponse(mb_master_t *mb, uint32_t len, uint32_t timeout)
+{
+	return mb->wait_for_resp(len, timeout);
 }
