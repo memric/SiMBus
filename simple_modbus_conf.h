@@ -27,7 +27,7 @@
 #define MBRTU_TRACE(message...)
 #endif
 
-#define ARR2U16(a)  ((uint16_t) (*(a) << 8) | *( (a)+1 ))
+#define ARR2U16(a)  (uint16_t) ( (*(a) << 8) | (*((a) + 1)) )
 #define U162ARR(b,a)  *(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
 
 /*Modbus function*/

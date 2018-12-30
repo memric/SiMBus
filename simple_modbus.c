@@ -11,8 +11,8 @@
 
 enum intfs_mode { RX, TX };
 
-static uint8_t RxMsg[MAX_MSG_LEN];
-static uint8_t TxMsg[MAX_MSG_LEN];
+static uint8_t RxMsg[MODBUS_MAX_MSG_LEN];
+static uint8_t TxMsg[MODBUS_MAX_MSG_LEN];
 static uint8_t *RxByte;
 static uint8_t Addr;
 static uint32_t last_rx_byte_time, last_tx_time;
@@ -332,7 +332,7 @@ void ByteReceivedCallback(void)
 	{
 		/*receive next byte*/
 		RxByte++;
-		if (RxByte > &RxMsg[MAX_MSG_LEN - 1])
+		if (RxByte > &RxMsg[MODBUS_MAX_MSG_LEN - 1])
 		{
 			/* not normal case*/
 			RxByte = RxMsg;

@@ -132,7 +132,7 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 	mb->tx_buf[6] = 2*num; //byte count
 
 	/*copy values to tx buffer*/
-	memcpy((void *) mb->tx_buf, (void *) val, 2*num);
+	memcpy((void *) &mb->tx_buf[7], (void *) val, 2*num);
 
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRMREGS, 5 + 2*num);
 
@@ -177,11 +177,11 @@ MBerror SiMasterPDUSend(mb_master_t *mb, uint8_t slave, uint8_t func, uint32_t l
 	mb->tx_buf[0] = slave; //slave address
 	mb->tx_buf[1] = func;  //function code
 
-	uint16_t crc = ModRTU_CRC(mb->tx_buf, len + 1); //CRC for all data
+	uint16_t crc = ModRTU_CRC(mb->tx_buf, len + 2); //CRC for all data
 
-	U162ARR(crc, (uint8_t *) &mb->tx_buf[1] + len);
+	U162ARR(crc, (uint8_t *) &mb->tx_buf[2] + len);
 
-	return mb->itfs_write(mb->tx_buf, len + 1 + 2);
+	return mb->itfs_write(mb->tx_buf, len + 2 + 2);
 }
 
 /*Check is it exception in response*/
