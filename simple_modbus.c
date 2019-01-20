@@ -56,7 +56,7 @@ void SmplModbus_Poll(void)
 {
 	if (mbmode == RX)
 	{
-		if ((RxByte > RxMsg) && (MB_GetTick() - last_rx_byte_time > 5))
+		if ((RxByte > RxMsg) && (MB_GetTick() - last_rx_byte_time > MODBUS_TERMINATING_TIME))
 		{
 			mbmode = TX;
 
@@ -278,8 +278,8 @@ static void SmplModbus_Parser(void)
 #endif
 		case MODBUS_FUNC_WRMREGS: //write multiple registers
 			val = RxMsg[6]; //byte count
-			tmp_crc = ARR2U16(&RxMsg[7 + val]);
-			if (tmp_crc == ModRTU_CRC(RxMsg, 7 + val))
+			tmp_crc = ARR2U16(&RxMsg[7 + points_num*2]);
+			if (tmp_crc == ModRTU_CRC(RxMsg, 7 + points_num*2))
 			{
 				MBerror err = RegMWriteCallback(start_addr, points_num, (uint16_t*) &RxMsg[7]);
 				if (err)

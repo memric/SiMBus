@@ -10,6 +10,8 @@ MBerror SiMasterInit(mb_master_t *mb)
 {
 	if (!mb->wait_for_resp || !mb->itfs_write || !mb->rx_buf || !mb->tx_buf)
 	{
+		MBRTU_TRACE("ModBus Master Init Problem\r\n");
+
 		return MODBUS_ERR_MASTER;
 	}
 
@@ -37,7 +39,7 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, 3 + num*2 + 2,MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if (SiMasterWaitForResponse(mb, 3 + num*2 + 2, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
 		return MODBUS_ERR_TIMEOUT;
 	}
 
