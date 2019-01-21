@@ -4,7 +4,7 @@
 
 MBerror SiMasterPDUSend(mb_master_t *mb, uint8_t slave, uint8_t func, uint32_t len);
 MBerror SiMasterCheckException(mb_master_t *mb);
-MBerror SiMasterWaitForResponse(mb_master_t *mb, uint32_t len, uint32_t timeout);
+MBerror SiMasterWaitForResponse(mb_master_t *mb, uint32_t timeout);
 
 MBerror SiMasterInit(mb_master_t *mb)
 {
@@ -32,6 +32,10 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	U162ARR(addr, &mb->tx_buf[2]); //starting address
 	U162ARR(num, &mb->tx_buf[4]); //Quantity of registers
 
+	/*Start receiving*/
+	mb->itfs_read(3 + num*2 + 2);
+
+	/*Send PDU*/
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_RDHLDREGS, 4);
 
 	if (err != MODBUS_ERR_OK) {
@@ -39,7 +43,7 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, 3 + num*2 + 2, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
 		return MODBUS_ERR_TIMEOUT;
 	}
 
@@ -62,7 +66,11 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 			}
 
 			/*Copy values*/
-			memcpy((void *) val, (void *) &mb->rx_buf[3], mb->rx_buf[2]);
+			for (int i = 0; i < num; i++)
+			{
+				val[i] = ARR2U16(&mb->rx_buf[3 + i*2]);
+			}
+
 			return MODBUS_ERR_OK;
 		}
 	}
@@ -83,6 +91,10 @@ MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t
 	U162ARR(addr, &mb->tx_buf[2]); //address
 	U162ARR(val, &mb->tx_buf[4]); //value
 
+	/*Start receiving*/
+	mb->itfs_read(6 + 2);
+
+	/*Send PDU*/
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRSREG, 4);
 
 	if (err != MODBUS_ERR_OK) {
@@ -90,7 +102,7 @@ MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, 6 + 2, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
 		return MODBUS_ERR_TIMEOUT;
 	}
 
@@ -134,8 +146,12 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 	mb->tx_buf[6] = 2*num; //byte count
 
 	/*copy values to tx buffer*/
-	memcpy((void *) &mb->tx_buf[7], (void *) val, 2*num);
+	memcpy(&mb->tx_buf[7], val, 2*num);
 
+	/*Start receiving*/
+	mb->itfs_read(6 + 2);
+
+	/*Send PDU*/
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRMREGS, 5 + 2*num);
 
 	if (err != MODBUS_ERR_OK) {
@@ -143,7 +159,7 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, 6 + 2, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
 		return MODBUS_ERR_TIMEOUT;
 	}
 
@@ -205,7 +221,7 @@ MBerror SiMasterCheckException(mb_master_t *mb)
 	return MODBUS_ERR_OK;
 }
 
-MBerror SiMasterWaitForResponse(mb_master_t *mb, uint32_t len, uint32_t timeout)
+MBerror SiMasterWaitForResponse(mb_master_t *mb, uint32_t timeout)
 {
-	return mb->wait_for_resp(len, timeout);
+	return mb->wait_for_resp(timeout);
 }

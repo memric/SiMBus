@@ -7,8 +7,8 @@
 
 typedef struct {
 	MBerror (*itfs_write)(uint8_t *data, uint32_t len);
-	//MBerror (*itfs_get_byte)(uint8_t *byte);  //reserved
-	MBerror (*wait_for_resp)(uint32_t len, uint32_t timeout);
+	MBerror (*itfs_read)(uint32_t len);
+	MBerror (*wait_for_resp)(uint32_t timeout);
 	uint8_t *rx_buf;
 	uint8_t *rx_byte;
 	uint8_t *tx_buf;
