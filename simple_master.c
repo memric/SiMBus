@@ -33,7 +33,10 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	U162ARR(num, &mb->tx_buf[4]); //Quantity of registers
 
 	/*Start receiving*/
-	mb->itfs_read(3 + num*2 + 2);
+	if (mb->itfs_read(3 + num*2 + 2) != MODBUS_ERR_OK)
+	{
+		return MODBUS_ERR_INTFS;
+	}
 
 	/*Send PDU*/
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_RDHLDREGS, 4);
@@ -43,7 +46,7 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK && mb->rx_len == 0) {
 		return MODBUS_ERR_TIMEOUT;
 	}
 
@@ -208,9 +211,9 @@ MBerror SiMasterCheckException(mb_master_t *mb)
 	if (mb->rx_buf[1] & 0x80)
 	{
 		/*Check CRC*/
-		if (ModRTU_CRC(mb->rx_buf, 2) == ARR2U16(&mb->rx_buf[2]))
+		if (ModRTU_CRC(mb->rx_buf, 3) == ARR2U16(&mb->rx_buf[3]))
 		{
-			return (mb->rx_buf[1] ^ 0x80); //exception code
+			return mb->rx_buf[2]; //exception code
 		}
 		else
 		{

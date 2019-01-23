@@ -13,6 +13,8 @@ typedef struct {
 	uint8_t *rx_byte;
 	uint8_t *tx_buf;
 	uint8_t mb_slave;
+	uint32_t rx_len;
+	uint32_t rx_wait_len;
 } mb_master_t;
 
 MBerror SiMasterInit(mb_master_t *mb);
