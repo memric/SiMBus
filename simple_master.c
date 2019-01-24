@@ -95,7 +95,10 @@ MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t
 	U162ARR(val, &mb->tx_buf[4]); //value
 
 	/*Start receiving*/
-	mb->itfs_read(6 + 2);
+	if (mb->itfs_read(6 + 2) != MODBUS_ERR_OK)
+	{
+		return MODBUS_ERR_INTFS;
+	}
 
 	/*Send PDU*/
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRSREG, 4);
@@ -152,7 +155,10 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 	memcpy(&mb->tx_buf[7], val, 2*num);
 
 	/*Start receiving*/
-	mb->itfs_read(6 + 2);
+	if (mb->itfs_read(6 + 2) != MODBUS_ERR_OK)
+	{
+		return MODBUS_ERR_INTFS;
+	}
 
 	/*Send PDU*/
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRMREGS, 5 + 2*num);
