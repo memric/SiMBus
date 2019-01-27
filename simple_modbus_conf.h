@@ -8,6 +8,7 @@
  */
 
 #include <stdint.h>
+#include "platform.h"
 
 #ifndef SIMPLE_MODBUS_CONF_H_
 #define SIMPLE_MODBUS_CONF_H_
@@ -17,13 +18,13 @@
 #define MODBUS_REGS_ENABLE			1	//Enable registers
 #define MODBUS_WRMCOILS_ENABLE		0	//Enable multiple coils write
 
-#define MODBUS_TRACE_ENABLE 		0	//Enable Trace
+#define MODBUS_TRACE_ENABLE 		1	//Enable Trace
 #define MODBUS_MAX_MSG_LEN 			256
-#define MODBUS_RESPONSE_TIMEOUT		300
+#define MODBUS_RESPONSE_TIMEOUT		100
 #define MODBUS_TERMINATING_TIME		10
 
 #if MODBUS_TRACE_ENABLE
-#define MBRTU_TRACE printf
+#define MBRTU_TRACE PTRACE
 #else
 #define MBRTU_TRACE(message...)
 #endif

@@ -2,6 +2,7 @@
 #include "mb_crc.h"
 #include <string.h>
 
+MBerror SiMasterReceive(mb_master_t *mb, uint32_t len);
 MBerror SiMasterPDUSend(mb_master_t *mb, uint8_t slave, uint8_t func, uint32_t len);
 MBerror SiMasterCheckException(mb_master_t *mb);
 MBerror SiMasterWaitForResponse(mb_master_t *mb, uint32_t timeout);
@@ -32,21 +33,26 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	U162ARR(addr, &mb->tx_buf[2]); //starting address
 	U162ARR(num, &mb->tx_buf[4]); //Quantity of registers
 
-	/*Start receiving*/
-	if (mb->itfs_read(3 + num*2 + 2) != MODBUS_ERR_OK)
-	{
-		return MODBUS_ERR_INTFS;
-	}
-
 	/*Send PDU*/
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_RDHLDREGS, 4);
 
 	if (err != MODBUS_ERR_OK) {
+		MBRTU_TRACE("ModBus Master Tx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
 		return err;
 	}
 
+	/*Start receiving*/
+	if (SiMasterReceive(mb, 3 + num*2 + 2) != MODBUS_ERR_OK)
+	{
+		MBRTU_TRACE("ModBus Master Rx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
+		return MODBUS_ERR_INTFS;
+	}
+
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK && mb->rx_len == 0) {
+	if ((SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT + num*2) != MODBUS_ERR_OK) &&
+			(mb->rx_buf[0] == 0))
+	{
+		MBRTU_TRACE("ModBus Master Response timeout: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
 		return MODBUS_ERR_TIMEOUT;
 	}
 
@@ -57,6 +63,7 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 
 		if (err != MODBUS_ERR_OK)
 		{
+			MBRTU_TRACE("ModBus Master Rx exception %d: Slave %d, Func %d\r\n", err, slave, MODBUS_FUNC_RDHLDREGS);
 			return err;
 		}
 
@@ -65,6 +72,7 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 			/*Check CRC*/
 			if (ModRTU_CRC(mb->rx_buf, 3 + num*2) != ARR2U16(&mb->rx_buf[3 + num*2]))
 			{
+				MBRTU_TRACE("ModBus Master Rx CRC error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
 				return MODBUS_ERR_CRC;
 			}
 
@@ -76,9 +84,15 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 
 			return MODBUS_ERR_OK;
 		}
+		else
+		{
+			MBRTU_TRACE("ModBus Master incorrect func response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
+			return MODBUS_ERR_VALUE;
+		}
 	}
 	else
 	{
+		MBRTU_TRACE("ModBus Master incorrect slave response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
 		return MODBUS_ERR_VALUE; //may be another error?
 	}
 
@@ -94,46 +108,70 @@ MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t
 	U162ARR(addr, &mb->tx_buf[2]); //address
 	U162ARR(val, &mb->tx_buf[4]); //value
 
-	/*Start receiving*/
-	if (mb->itfs_read(6 + 2) != MODBUS_ERR_OK)
-	{
-		return MODBUS_ERR_INTFS;
-	}
-
 	/*Send PDU*/
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRSREG, 4);
 
 	if (err != MODBUS_ERR_OK) {
+		MBRTU_TRACE("ModBus Master Tx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
 		return err;
+	}
+
+	/*Start receiving*/
+	if (SiMasterReceive(mb, 6 + 2) != MODBUS_ERR_OK)
+	{
+		MBRTU_TRACE("ModBus Master Rx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
+		return MODBUS_ERR_INTFS;
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if ((SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) &&
+			(mb->rx_buf[0] == 0))
+	{
+		MBRTU_TRACE("ModBus Master Response timeout: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
 		return MODBUS_ERR_TIMEOUT;
 	}
 
-	/*Check for exception*/
-	err = SiMasterCheckException(mb);
-
-	if (err != MODBUS_ERR_OK)
+	if (mb->rx_buf[0] == slave)
 	{
-		return err;
-	}
+		/*Check for exception*/
+		err = SiMasterCheckException(mb);
 
-	/*Check CRC*/
-	if (ModRTU_CRC(mb->rx_buf, 6) != ARR2U16(&mb->rx_buf[6]))
-	{
-		return MODBUS_ERR_CRC;
-	}
-
-	/*compare request and response. Must be the same*/
-	for (i = 0; i < 6; i++)
-	{
-		if (mb->rx_buf[i] != mb->tx_buf[i])
+		if (err != MODBUS_ERR_OK)
 		{
-			err = MODBUS_ERR_VALUE;
-			break;
+			MBRTU_TRACE("ModBus Master Rx exception %d: Slave %d, Func %d\r\n", err, slave, MODBUS_FUNC_WRSREG);
+			return err;
 		}
+
+		if (mb->rx_buf[1] == MODBUS_FUNC_WRSREG)
+		{
+			/*Check CRC*/
+			if (ModRTU_CRC(mb->rx_buf, 6) != ARR2U16(&mb->rx_buf[6]))
+			{
+				MBRTU_TRACE("ModBus Master Rx CRC error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
+				return MODBUS_ERR_CRC;
+			}
+
+			/*compare request and response. Must be the same*/
+			for (i = 0; i < 6; i++)
+			{
+				if (mb->rx_buf[i] != mb->tx_buf[i])
+				{
+					err = MODBUS_ERR_VALUE;
+					break;
+				}
+			}
+		}
+		else
+		{
+			MBRTU_TRACE("ModBus Master incorrect func response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
+			return MODBUS_ERR_VALUE;
+		}
+
+	}
+	else
+	{
+		MBRTU_TRACE("ModBus Master incorrect slave response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
+		return MODBUS_ERR_VALUE; //may be another error?
 	}
 
 	return err;
@@ -154,51 +192,90 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 	/*copy values to tx buffer*/
 	memcpy(&mb->tx_buf[7], val, 2*num);
 
-	/*Start receiving*/
-	if (mb->itfs_read(6 + 2) != MODBUS_ERR_OK)
-	{
-		return MODBUS_ERR_INTFS;
-	}
-
 	/*Send PDU*/
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRMREGS, 5 + 2*num);
 
 	if (err != MODBUS_ERR_OK) {
+		MBRTU_TRACE("ModBus Master Tx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
 		return err;
+	}
+
+	/*Start receiving*/
+	if (SiMasterReceive(mb, 6 + 2) != MODBUS_ERR_OK)
+	{
+		MBRTU_TRACE("ModBus Master Rx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
+		return MODBUS_ERR_INTFS;
 	}
 
 	/*wait for response*/
-	if (SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) {
+	if ((SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT + 2*num) != MODBUS_ERR_OK) &&
+			(mb->rx_buf[0] == 0))
+	{
+		MBRTU_TRACE("ModBus Master Response timeout: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
 		return MODBUS_ERR_TIMEOUT;
 	}
 
-	/*Check for exception*/
-	err = SiMasterCheckException(mb);
-
-	if (err != MODBUS_ERR_OK)
+	if (mb->rx_buf[0] == slave)
 	{
-		return err;
-	}
+		/*Check for exception*/
+		err = SiMasterCheckException(mb);
 
-	/*Check CRC*/
-	if (ModRTU_CRC(mb->rx_buf, 6) != ARR2U16(&mb->rx_buf[6]))
-	{
-		return MODBUS_ERR_CRC;
-	}
-
-	/*compare first bytes of request and response*/
-	for (i = 0; i < 6; i++)
-	{
-		if (mb->rx_buf[i] != mb->tx_buf[i])
+		if (err != MODBUS_ERR_OK)
 		{
-			err = MODBUS_ERR_VALUE;
-			break;
+			MBRTU_TRACE("ModBus Master Rx exception %d: Slave %d, Func %d\r\n", err, slave, MODBUS_FUNC_WRMREGS);
+			return err;
 		}
+
+		if (mb->rx_buf[1] == MODBUS_FUNC_WRMREGS)
+		{
+			/*Check CRC*/
+			if (ModRTU_CRC(mb->rx_buf, 6) != ARR2U16(&mb->rx_buf[6]))
+			{
+				MBRTU_TRACE("ModBus Master Rx CRC error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
+				return MODBUS_ERR_CRC;
+			}
+
+			/*compare first bytes of request and response*/
+			for (i = 0; i < 6; i++)
+			{
+				if (mb->rx_buf[i] != mb->tx_buf[i])
+				{
+					err = MODBUS_ERR_VALUE;
+					break;
+				}
+			}
+		}
+		else
+		{
+			MBRTU_TRACE("ModBus Master incorrect func response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
+			return MODBUS_ERR_VALUE;
+		}
+	}
+	else
+	{
+		MBRTU_TRACE("ModBus Master incorrect slave response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
+		return MODBUS_ERR_VALUE; //may be another error?
 	}
 
 	return err;
 }
 
+/*Starts receiver*/
+MBerror SiMasterReceive(mb_master_t *mb, uint32_t len)
+{
+	/*clear rx buffer*/
+	memset(mb->rx_buf, 0, len);
+
+	/*start receiving*/
+	if (mb->itfs_read(len) != MODBUS_ERR_OK)
+	{
+		return MODBUS_ERR_INTFS;
+	}
+
+	return MODBUS_ERR_OK;
+}
+
+/*Prepares packet and send it*/
 MBerror SiMasterPDUSend(mb_master_t *mb, uint8_t slave, uint8_t func, uint32_t len)
 {
 	mb->tx_buf[0] = slave; //slave address
