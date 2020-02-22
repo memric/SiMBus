@@ -11,7 +11,7 @@ MBerror SiMasterInit(mb_master_t *mb)
 {
 	if (!mb->wait_for_resp || !mb->itfs_write || !mb->rx_buf || !mb->tx_buf)
 	{
-		MBRTU_TRACE("ModBus Master Init Problem\r\n");
+		MBRTU_TRACE_ERR("Init Problem\r\n");
 
 		return MODBUS_ERR_MASTER;
 	}
@@ -37,14 +37,14 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_RDHLDREGS, 4);
 
 	if (err != MODBUS_ERR_OK) {
-		MBRTU_TRACE("ModBus Master Tx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
+		MBRTU_TRACE_ERR("Tx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
 		return err;
 	}
 
 	/*Start receiving*/
 	if (SiMasterReceive(mb, 3 + num*2 + 2) != MODBUS_ERR_OK)
 	{
-		MBRTU_TRACE("ModBus Master Rx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
+		MBRTU_TRACE_ERR("Rx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
 		return MODBUS_ERR_INTFS;
 	}
 
@@ -52,7 +52,7 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 	if ((SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT + num*2) != MODBUS_ERR_OK) &&
 			(mb->rx_buf[0] == 0))
 	{
-		MBRTU_TRACE("ModBus Master Response timeout: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
+		MBRTU_TRACE_ERR("Response timeout: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
 		return MODBUS_ERR_TIMEOUT;
 	}
 
@@ -63,7 +63,7 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 
 		if (err != MODBUS_ERR_OK)
 		{
-			MBRTU_TRACE("ModBus Master Rx exception %d: Slave %d, Func %d\r\n", err, slave, MODBUS_FUNC_RDHLDREGS);
+			MBRTU_TRACE_ERR("Rx exception %d: Slave %d, Func %d\r\n", err, slave, MODBUS_FUNC_RDHLDREGS);
 			return err;
 		}
 
@@ -72,7 +72,7 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 			/*Check CRC*/
 			if (ModRTU_CRC(mb->rx_buf, 3 + num*2) != ARR2U16(&mb->rx_buf[3 + num*2]))
 			{
-				MBRTU_TRACE("ModBus Master Rx CRC error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
+				MBRTU_TRACE_ERR("Rx CRC error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
 				return MODBUS_ERR_CRC;
 			}
 
@@ -86,13 +86,13 @@ MBerror SiMasterReadHRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_
 		}
 		else
 		{
-			MBRTU_TRACE("ModBus Master incorrect func response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
+			MBRTU_TRACE_ERR("Incorrect func response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
 			return MODBUS_ERR_VALUE;
 		}
 	}
 	else
 	{
-		MBRTU_TRACE("ModBus Master incorrect slave response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
+		MBRTU_TRACE_ERR("Incorrect slave response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_RDHLDREGS);
 		return MODBUS_ERR_VALUE; //may be another error?
 	}
 
@@ -112,14 +112,14 @@ MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRSREG, 4);
 
 	if (err != MODBUS_ERR_OK) {
-		MBRTU_TRACE("ModBus Master Tx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
+		MBRTU_TRACE_ERR("Tx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
 		return err;
 	}
 
 	/*Start receiving*/
 	if (SiMasterReceive(mb, 6 + 2) != MODBUS_ERR_OK)
 	{
-		MBRTU_TRACE("ModBus Master Rx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
+		MBRTU_TRACE_ERR("Rx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
 		return MODBUS_ERR_INTFS;
 	}
 
@@ -127,7 +127,7 @@ MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t
 	if ((SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT) != MODBUS_ERR_OK) &&
 			(mb->rx_buf[0] == 0))
 	{
-		MBRTU_TRACE("ModBus Master Response timeout: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
+		MBRTU_TRACE_ERR("Response timeout: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
 		return MODBUS_ERR_TIMEOUT;
 	}
 
@@ -138,7 +138,7 @@ MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t
 
 		if (err != MODBUS_ERR_OK)
 		{
-			MBRTU_TRACE("ModBus Master Rx exception %d: Slave %d, Func %d\r\n", err, slave, MODBUS_FUNC_WRSREG);
+			MBRTU_TRACE_ERR("Rx exception %d: Slave %d, Func %d\r\n", err, slave, MODBUS_FUNC_WRSREG);
 			return err;
 		}
 
@@ -147,7 +147,7 @@ MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t
 			/*Check CRC*/
 			if (ModRTU_CRC(mb->rx_buf, 6) != ARR2U16(&mb->rx_buf[6]))
 			{
-				MBRTU_TRACE("ModBus Master Rx CRC error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
+				MBRTU_TRACE_ERR("Rx CRC error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
 				return MODBUS_ERR_CRC;
 			}
 
@@ -163,14 +163,14 @@ MBerror SiMasterWriteReg(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16_t
 		}
 		else
 		{
-			MBRTU_TRACE("ModBus Master incorrect func response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
+			MBRTU_TRACE_ERR("Incorrect func response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
 			return MODBUS_ERR_VALUE;
 		}
 
 	}
 	else
 	{
-		MBRTU_TRACE("ModBus Master incorrect slave response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
+		MBRTU_TRACE_ERR("Incorrect slave response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRSREG);
 		return MODBUS_ERR_VALUE; //may be another error?
 	}
 
@@ -196,14 +196,14 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 	err = SiMasterPDUSend(mb, slave, MODBUS_FUNC_WRMREGS, 5 + 2*num);
 
 	if (err != MODBUS_ERR_OK) {
-		MBRTU_TRACE("ModBus Master Tx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
+		MBRTU_TRACE_ERR("Tx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
 		return err;
 	}
 
 	/*Start receiving*/
 	if (SiMasterReceive(mb, 6 + 2) != MODBUS_ERR_OK)
 	{
-		MBRTU_TRACE("ModBus Master Rx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
+		MBRTU_TRACE_ERR("Rx error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
 		return MODBUS_ERR_INTFS;
 	}
 
@@ -211,7 +211,7 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 	if ((SiMasterWaitForResponse(mb, MODBUS_RESPONSE_TIMEOUT + 2*num) != MODBUS_ERR_OK) &&
 			(mb->rx_buf[0] == 0))
 	{
-		MBRTU_TRACE("ModBus Master Response timeout: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
+		MBRTU_TRACE_ERR("Response timeout: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
 		return MODBUS_ERR_TIMEOUT;
 	}
 
@@ -222,7 +222,7 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 
 		if (err != MODBUS_ERR_OK)
 		{
-			MBRTU_TRACE("ModBus Master Rx exception %d: Slave %d, Func %d\r\n", err, slave, MODBUS_FUNC_WRMREGS);
+			MBRTU_TRACE_ERR("Rx exception %d: Slave %d, Func %d\r\n", err, slave, MODBUS_FUNC_WRMREGS);
 			return err;
 		}
 
@@ -231,7 +231,7 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 			/*Check CRC*/
 			if (ModRTU_CRC(mb->rx_buf, 6) != ARR2U16(&mb->rx_buf[6]))
 			{
-				MBRTU_TRACE("ModBus Master Rx CRC error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
+				MBRTU_TRACE_ERR("Rx CRC error: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
 				return MODBUS_ERR_CRC;
 			}
 
@@ -247,13 +247,13 @@ MBerror SiMasterWriteMRegs(mb_master_t *mb, uint8_t slave, uint16_t addr, uint16
 		}
 		else
 		{
-			MBRTU_TRACE("ModBus Master incorrect func response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
+			MBRTU_TRACE_ERR("Incorrect func response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
 			return MODBUS_ERR_VALUE;
 		}
 	}
 	else
 	{
-		MBRTU_TRACE("ModBus Master incorrect slave response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
+		MBRTU_TRACE_ERR("Incorrect slave response: Slave %d, Func %d\r\n", slave, MODBUS_FUNC_WRMREGS);
 		return MODBUS_ERR_VALUE; //may be another error?
 	}
 

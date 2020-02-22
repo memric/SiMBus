@@ -18,19 +18,36 @@
 #define MODBUS_REGS_ENABLE			1	//Enable registers
 #define MODBUS_WRMCOILS_ENABLE		0	//Enable multiple coils write
 
-#define MODBUS_TRACE_ENABLE 		1	//Enable Trace
+#define MODBUS_TRACE_LEVEL 			1	//Enable Trace
 #define MODBUS_MAX_MSG_LEN 			256
 #define MODBUS_RESPONSE_TIMEOUT		100
 #define MODBUS_TERMINATING_TIME		10
 
-#if MODBUS_TRACE_ENABLE
-#define MBRTU_TRACE PTRACE
+#if MODBUS_TRACE_LEVEL > 0
+#define MBRTU_TRACE_ERR(message...)	PTRACE_ERR("MODBUS ERR: "); PTRACE_ERR(message)
+#if MODBUS_TRACE_LEVEL > 1
+#define MBRTU_TRACE_WRN(message...)	PTRACE_WRN("MODBUS WRN: "); PTRACE_WRN(message)
+#if MODBUS_TRACE_LEVEL > 2
+#define MBRTU_TRACE(message...)		PTRACE("MODBUS: "); PTRACE(message)
+#define MBRTU_TRACE_IRQ(message...)	PTRACE_IRQ(message)
 #else
 #define MBRTU_TRACE(message...)
+#define MBRTU_TRACE_IRQ(message...)
+#endif  MBRTU
+#else
+#define MBRTU_TRACE(message...)
+#define MBRTU_TRACE_WRN(message...)
+#define MBRTU_TRACE_IRQ(message...)
 #endif
+#else   MBRTU
+#define MBRTU_TRACE(message...)
+#define MBRTU_TRACE_ERR(message...)
+#define MBRTU_TRACE_WRN(message...)
+#define MBRTU_TRACE_IRQ(message...)
+#endif /*RTLS_TRACE_LEVEL*/
 
-#define ARR2U16(a)  (uint16_t) ( (*(a) << 8) | (*((a) + 1)) )
-#define U162ARR(b,a)  *(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
+#define ARR2U16(a)  			(uint16_t) ( (*(a) << 8) | (*((a) + 1)) )
+#define U162ARR(b,a)  			*(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
 
 /*Modbus function*/
 #define MODBUS_FUNC_RDCOIL 		1 	//Read Coil
