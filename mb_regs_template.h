@@ -8,7 +8,7 @@
 #ifndef MB_REGS_H_
 #define MB_REGS_H_
 
-#include "simple_modbus_conf.h"
+#include "simple_modbus_conf_template.h"
 #include <stdint.h>
 
 #define MODBUS_ERR_OK 			0

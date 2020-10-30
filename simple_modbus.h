@@ -8,8 +8,8 @@
 #ifndef SIMPLE_MODBUS_H_
 #define SIMPLE_MODBUS_H_
 
+#include <simple_modbus_conf_template.h>
 #include <stdint.h>
-#include "simple_modbus_conf.h"
 #include "mb_regs.h"
 
 /*error codes*/
