@@ -1,7 +1,7 @@
 /*
  * simple_modbus.c
  *
- *  Created on: 05 ���. 2016 �.
+ *  Created on: 2016
  *      Author: Valeriy Chudnikov
  */
 
@@ -9,6 +9,7 @@
 #include "string.h"
 #include "main.h"
 #include "us_timer.h"
+#include "mb_crc.h"
 
 #define MODBUS_FUNC_RDCOIL 		1 	/*Read Coil*/
 #define MODBUS_FUNC_RDDINP 		2 	/*Read discrete input*/
@@ -23,7 +24,6 @@
 #define DE_LOW					mb->set_de(DELOW)
 
 static void SmplModbus_Parser(smpl_modbus_t *mb);
-static uint16_t ModRTU_CRC(uint8_t *buf, int len);
 static void SmplModbus_SendException(smpl_modbus_t *mb, uint8_t func, MBerror excpt);
 static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len);
 #if MODBUS_REGS_ENABLE
@@ -36,20 +36,20 @@ extern MBerror CoilsInputsWriteCallback(uint16_t addr, uint16_t num, uint8_t *co
 extern MBerror CoilWriteCallback(uint16_t addr, uint8_t val);
 #endif
 
-extern TIM_HandleTypeDef htim1;
-
 MBerror SmplModbus_Start(smpl_modbus_t *mb)
 {
 	if ((mb->addr == 0) || (mb->tx_func == NULL) || (mb->rx_buf_len == 0) ||
 			(mb->rx_func == NULL) || (mb->rx_stop == NULL) ||
-			(mb->set_de == NULL)) {
+			(mb->set_de == NULL) || (mb->htim == NULL)) {
 		return MODBUS_ERR_PARAM;
 	}
 
 	mb->rx_byte = mb->rx_buf;
 	mb->mbmode = RX;
 
+#if MODBUS_USE_US_TIMER
 	us_timer_init();
+#endif
 
 	MBRTU_TRACE("Starting Modbus RTU with Address %d\r\n", mb->addr);
 
@@ -310,38 +310,21 @@ static void SmplModbus_SendException(smpl_modbus_t *mb, uint8_t func, MBerror ex
 static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len)
 {
 	DE_HIGH;
-	us_timer_start(&htim1, 100);
+#if MODBUS_USE_US_TIMER
+	us_timer_start(mb->htim, 100);
+#endif
 
 #if MODBUS_NONBLOCKING_TX
 	//HAL_UART_Transmit_IT(&huart1, data, len);
 #else
 	mb->tx_func(mb->tx_buf, len);
-	us_timer_start(&htim1, 100);
+#if MODBUS_USE_US_TIMER
+	us_timer_start(mb->htim, 100);
+#endif
 	DE_LOW;
 #endif
 
 	mb->last_tx_time = MODBUS_GET_TICK;
-}
-
-/*Checksum calculation*/
-static uint16_t ModRTU_CRC(uint8_t *buf, int len)
-{
-  uint16_t crc = 0xFFFF;
-
-  for (int pos = 0; pos < len; pos++) {
-    crc ^= (uint16_t) buf[pos];
-
-    for (int i = 8; i != 0; i--) {
-      if ((crc & 0x0001) != 0) {
-        crc >>= 1;
-        crc ^= 0xA001;
-      }
-      else
-        crc >>= 1;
-    }
-  }
-
-  return (uint16_t) ((crc << 8) & 0xff00) | ((crc >> 8) & 0xff);
 }
 
 void SmplModbus_ByteReceivedCallback(smpl_modbus_t *mb)

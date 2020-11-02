@@ -25,6 +25,14 @@
 #define MBRTU_TRACE(msg...)
 #endif
 
+#ifndef MODBUS_USE_US_TIMER
+#define MODBUS_USE_US_TIMER		1	/*us Times usage enabling for DE delay*/
+#endif
+
+#ifndef MODBUS_USE_TABLE_CRC
+#define MODBUS_USE_TABLE_CRC	0	/*Table CRC calculation usage*/
+#endif
+
 #define MODBUS_GET_TICK			HAL_GetTick()
 
 #endif /* SIMPLE_MODBUS_CONF_H_ */

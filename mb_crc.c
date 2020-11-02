@@ -1,5 +1,7 @@
 #include "mb_crc.h"
+#include "simple_modbus_conf.h"
 
+#if MODBUS_USE_TABLE_CRC
 static const uint8_t aucCRCHi[] = {
     0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x01, 0xC0, 0x80, 0x41,
     0x00, 0xC1, 0x81, 0x40, 0x01, 0xC0, 0x80, 0x41, 0x00, 0xC1, 0x81, 0x40,
@@ -65,22 +67,26 @@ uint16_t ModRTU_CRC( uint8_t * buf, uint16_t len )
     return ( uint16_t )( ucCRCLo << 8 | ucCRCHi );
 }
 
-//uint16_t ModRTU_CRC(uint8_t *buf, int len)
-//{
-//  uint16_t crc = 0xFFFF;
-//
-//  for (int pos = 0; pos < len; pos++) {
-//    crc ^= (uint16_t) buf[pos];
-//
-//    for (int i = 8; i != 0; i--) {
-//      if ((crc & 0x0001) != 0) {
-//        crc >>= 1;
-//        crc ^= 0xA001;
-//      }
-//      else
-//        crc >>= 1;
-//    }
-//  }
-//
-//  return (uint16_t) ((crc << 8) & 0xff00) | ((crc >> 8) & 0xff);
-//}
+#else
+
+uint16_t ModRTU_CRC(uint8_t *buf, uint16_t len)
+{
+	uint16_t crc = 0xFFFF;
+
+	for (int pos = 0; pos < len; pos++) {
+		crc ^= (uint16_t) buf[pos];
+
+		for (int i = 8; i != 0; i--) {
+			if ((crc & 0x0001) != 0) {
+				crc >>= 1;
+				crc ^= 0xA001;
+			}
+			else
+				crc >>= 1;
+		}
+	}
+
+	return (uint16_t) ((crc << 8) & 0xff00) | ((crc >> 8) & 0xff);
+}
+
+#endif
