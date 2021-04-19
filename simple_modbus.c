@@ -7,9 +7,10 @@
 
 #include "simple_modbus.h"
 #include "string.h"
-#include "main.h"
-#include "us_timer.h"
 #include "mb_crc.h"
+#if MODBUS_USE_US_TIMER
+#include "us_timer.h"
+#endif
 
 #define MODBUS_FUNC_RDCOIL 		1 	/*Read Coil*/
 #define MODBUS_FUNC_RDDINP 		2 	/*Read discrete input*/
@@ -20,8 +21,8 @@
 #define MODBUS_FUNC_WRMCOILS 	15  /*Write multiple coils*/
 #define MODBUS_FUNC_WRMREGS 	16  /*Write multiple registers*/
 
-#define DE_HIGH					mb->set_de(DEHIGH)
-#define DE_LOW					mb->set_de(DELOW)
+#define DE_HIGH()				mb->set_de(DEHIGH)
+#define DE_LOW()				mb->set_de(DELOW)
 
 static void SmplModbus_Parser(smpl_modbus_t *mb);
 static void SmplModbus_SendException(smpl_modbus_t *mb, uint8_t func, MBerror excpt);
@@ -40,7 +41,7 @@ MBerror SmplModbus_Start(smpl_modbus_t *mb)
 {
 	if ((mb->addr == 0) || (mb->tx_func == NULL) || (mb->rx_buf_len == 0) ||
 			(mb->rx_func == NULL) || (mb->rx_stop == NULL) ||
-			(mb->set_de == NULL) || (mb->htim == NULL)) {
+			(mb->set_de == NULL)) {
 		return MODBUS_ERR_PARAM;
 	}
 
@@ -48,11 +49,15 @@ MBerror SmplModbus_Start(smpl_modbus_t *mb)
 	mb->mbmode = RX;
 
 #if MODBUS_USE_US_TIMER
+	if (mb->htim == NULL) {
+		return MODBUS_ERR_PARAM;
+	}
 	us_timer_init();
 #endif
 
 	MBRTU_TRACE("Starting Modbus RTU with Address %d\r\n", mb->addr);
 
+	DE_LOW();
 	mb->rx_func(mb->rx_byte);
 
 	return MODBUS_ERR_OK;
@@ -309,7 +314,7 @@ static void SmplModbus_SendException(smpl_modbus_t *mb, uint8_t func, MBerror ex
 
 static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len)
 {
-	DE_HIGH;
+	DE_HIGH();
 #if MODBUS_USE_US_TIMER
 	us_timer_start(mb->htim, 100);
 #endif
@@ -321,7 +326,7 @@ static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len)
 #if MODBUS_USE_US_TIMER
 	us_timer_start(mb->htim, 100);
 #endif
-	DE_LOW;
+	DE_LOW();
 #endif
 
 	mb->last_tx_time = MODBUS_GET_TICK;
@@ -352,7 +357,7 @@ void SmplModbus_tx_cmplt(smpl_modbus_t *mb)
 	mb->last_tx_time = MODBUS_GET_TICK;
 	mb->mbmode = RX;
 
-	DE_LOW;
+	DE_LOW();
 }
 #endif
 
@@ -364,5 +369,5 @@ void SmplModbus_error(smpl_modbus_t *mb)
 	mb->mbmode = RX;
 	mb->rx_func(mb->rx_byte);
 
-	DE_LOW;
+	DE_LOW();
 }

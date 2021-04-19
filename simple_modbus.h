@@ -8,7 +8,6 @@
 #ifndef SIMPLE_MODBUS_H_
 #define SIMPLE_MODBUS_H_
 
-#include <stdint.h>
 #include "mb_regs.h"
 #include "simple_modbus_conf.h"
 #ifdef USE_HAL_DRIVER
@@ -16,16 +15,15 @@
 #endif
 
 /*error codes*/
-#define MODBUS_ERR_OK 			0
-#define MODBUS_ERR_ILLEGFUNC 	1
-#define MODBUS_ERR_ILLEGADDR 	2
-#define MODBUS_ERR_ILLEGVAL  	3
+#define MODBUS_ERR_OK			0
+#define MODBUS_ERR_ILLEGFUNC	1
+#define MODBUS_ERR_ILLEGADDR	2
+#define MODBUS_ERR_ILLEGVAL		3
 #define MODBUS_ERR_PARAM		10
 #define MODBUS_ERR_INTFS		11
 
-#define MODBUS_MAX_MSG_LEN 		256
+#define MODBUS_MAX_MSG_LEN		256
 
-typedef uint8_t MBerror;
 enum intfs_mode { RX = 0, TX };
 typedef enum {DELOW = 0, DEHIGH} de_state_t;
 

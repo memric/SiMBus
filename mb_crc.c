@@ -1,5 +1,4 @@
 #include "mb_crc.h"
-#include "simple_modbus_conf.h"
 
 #if MODBUS_USE_TABLE_CRC
 static const uint8_t aucCRCHi[] = {
