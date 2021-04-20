@@ -39,11 +39,12 @@ extern MBerror CoilWriteCallback(uint16_t addr, uint8_t val);
 
 MBerror SmplModbus_Start(smpl_modbus_t *mb)
 {
-	if ((mb->addr == 0) || (mb->tx_func == NULL) || (mb->rx_buf_len == 0) ||
-			(mb->rx_func == NULL) || (mb->rx_stop == NULL) ||
-			(mb->set_de == NULL)) {
-		return MODBUS_ERR_PARAM;
-	}
+	MB_ASSERT(mb->addr > 0);
+	MB_ASSERT(mb->rx_buf_len > 0);
+	MB_ASSERT(mb->tx_func != NULL);
+	MB_ASSERT(mb->rx_func != NULL);
+	MB_ASSERT(mb->rx_stop != NULL);
+	MB_ASSERT(mb->set_de != NULL);
 
 	mb->rx_byte = mb->rx_buf;
 	mb->mbmode = RX;
