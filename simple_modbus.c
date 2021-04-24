@@ -104,8 +104,10 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 	uint16_t points_num;
 	uint16_t tmp_crc;
 	uint16_t val;
-	uint32_t byte_cnt;
 	MBerror err = MODBUS_ERR_OK;
+#if MODBUS_WRMREGS_ENABLE
+	uint32_t byte_cnt;
+#endif
 
 	/*Check address first*/
 	if (mb->rx_buf[0] == mb->addr)
@@ -348,7 +350,7 @@ static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len)
 #endif
 
 #if MODBUS_NONBLOCKING_TX
-	//HAL_UART_Transmit_IT(&huart1, data, len);
+
 #else
 	mb->tx_func(mb->tx_buf, len);
 #if MODBUS_USE_US_TIMER
