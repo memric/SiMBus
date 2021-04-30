@@ -21,6 +21,8 @@
 #define MODBUS_FUNC_WRMCOILS 	15  /*Write multiple coils*/
 #define MODBUS_FUNC_WRMREGS 	16  /*Write multiple registers*/
 
+#define MODBUS_MSG_MIN_LEN		6	/*Minimal message length (addr + func + strt addr + CRC)*/
+
 #define DE_HIGH()				mb->set_de(DEHIGH)
 #define DE_LOW()				mb->set_de(DELOW)
 
@@ -80,8 +82,12 @@ void SmplModbus_Poll(smpl_modbus_t *mb)
 			mb->rx_stop();
 			mb->mbmode = TX;
 
-			/*Parse incoming message*/
-			SmplModbus_Parser(mb);
+			/*Check message minimal length*/
+			if ((mb->rx_byte -  mb->rx_buf) > MODBUS_MSG_MIN_LEN)
+			{
+				/*Parse incoming message*/
+				SmplModbus_Parser(mb);
+			}
 
 			mb->rx_byte = mb->rx_buf;
 			mb->mbmode = RX;
@@ -320,7 +326,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 #endif
 			break;
 
-			default: SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);
+			default: break;//SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);
 		}
 	}
 }
