@@ -7,6 +7,9 @@
  *      Author: Valeriy Chudnikov
  */
 
+#include <stdint.h>
+#include <assert.h>
+
 #ifndef SIMPLE_MODBUS_CONF_H_
 #define SIMPLE_MODBUS_CONF_H_
 
@@ -34,5 +37,7 @@
 #endif
 
 #define MODBUS_GET_TICK			HAL_GetTick()
+
+#define MB_ASSERT				assert
 
 #endif /* SIMPLE_MODBUS_CONF_H_ */
