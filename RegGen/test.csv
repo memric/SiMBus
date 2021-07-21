@@ -1,4 +1,4 @@
 Name,Address,Mode,Min,Max,Default,Comment
-Reg1,0,rw,0,100,0,Reg 1
-Reg2,1,rw,0,255,0,Reg 2
-Reg3,2,rw,0,3,0,Reg 3
+Reg1,0,r,0,100,0,Reg 1
+Reg2,1,w,0,255,10,Reg 2
+Reg3,2,rw,0,3,20,Reg 3
