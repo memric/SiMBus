@@ -10,9 +10,6 @@
 
 #include "mb_regs.h"
 #include "simple_modbus_conf.h"
-#ifdef USE_HAL_DRIVER
-#include "stm32_depend.h"
-#endif
 
 /*error codes*/
 #define MODBUS_ERR_OK			0
@@ -40,8 +37,8 @@ typedef struct {
 	MBerror (*tx_func)(uint8_t *data, uint32_t len); /*Low level tx function*/
 	void (*rx_stop)(void);
 	void (*set_de)(de_state_t s);
-#ifdef USE_HAL_DRIVER
-	TIM_HandleTypeDef *htim;
+#ifdef MODBUS_USE_US_TIMER
+	void (*us_delay)(uint32_t delay); /*us delay function*/
 #endif
 } smpl_modbus_t;
 

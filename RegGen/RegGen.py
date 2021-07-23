@@ -4,6 +4,7 @@
 import sys
 import csv
 import datetime
+import string
 
 from argparse import ArgumentParser
 
@@ -82,18 +83,16 @@ def main(argv=None): # IGNORE:C0111
         reg_map = sorted(reg_map, key=lambda k: k['Address']) 
         
     '''Create C files'''
+        
     '''Register map'''
+    #open template file
+    with open("mb_regs_h.template") as ht:
+        rmh_template = string.Template(ht.read())
+        
     rmh_f = open('mb_regs.h', 'w', newline='')
-    #Comment
-    rmh_f.write("/**\r\n* This file is created automatically\r\n")
-    rmh_f.write("* Created on: %s\r\n**/\r\n"%(datetime.date.today()))
-    rmh_f.write("\r\n")
-        
-    #Defines
-    rmh_f.write("#ifndef MB_REGS_H_\r\n")
-    rmh_f.write("#define MB_REGS_H_\r\n")
-    rmh_f.write("\r\n")
-        
+    
+    reg_map_defs = ""
+    
     for row in reg_map:
         addr = int(row['Address'])
         min = int(row['Min'])
@@ -107,69 +106,56 @@ def main(argv=None): # IGNORE:C0111
         elif row['Mode'].upper() == 'RW':
             oper = 3
             
-        rmh_f.write("/* Register: %s\r\n* Addr: %s; Min: %d; Max: %d; Default: %d\r\n*/\r\n"%(row['Comment'], hex(addr).upper(), min, max, default))
-        rmh_f.write("#define REG_%s_ADDR\t%s\r\n"%(row['Name'].upper(), hex(addr).upper()))
-        rmh_f.write("#define REG_%s_MIN\t%d\r\n"%(row['Name'].upper(), min))
-        rmh_f.write("#define REG_%s_MAX\t%d\r\n"%(row['Name'].upper(), max))
-        rmh_f.write("#define REG_%s_DEF\t%d\r\n"%(row['Name'].upper(), default))
-        rmh_f.write("#define REG_%s_OPER\t%d\r\n"%(row['Name'].upper(), oper))
-        rmh_f.write("\r\n")
-            
-    rmh_f.write("#define REG_LAST_ADDR\t%d /*Last register address*/\r\n"%(last_reg_addr))
-    rmh_f.write("#define REG_NUM\t\t\t%d /*Total registers number*/\r\n"%(reg_num))
-    rmh_f.write("\r\n")
+        reg_map_defs += "/* Register: %s\r\n* Addr: %s; Min: %d; Max: %d; Default: %d\r\n*/\r\n"%(row['Comment'], hex(addr), min, max, default)
+        reg_map_defs += "#define REG_%s_ADDR\t%s\r\n"%(row['Name'].upper(), hex(addr))
+        reg_map_defs += "#define REG_%s_MIN\t%d\r\n"%(row['Name'].upper(), min)
+        reg_map_defs += "#define REG_%s_MAX\t%d\r\n"%(row['Name'].upper(), max)
+        reg_map_defs += "#define REG_%s_DEF\t%d\r\n"%(row['Name'].upper(), default)
+        reg_map_defs += "#define REG_%s_OPER\t%d\r\n"%(row['Name'].upper(), oper)
+        reg_map_defs += "\r\n"
     
-    rmh_f.write("#endif /*MB_REGS_H_*/\r\n")
-    rmh_f.write("\r\n")
-        
+    #fill template and write to file        
+    rmh_content = rmh_template.safe_substitute(date=datetime.date.today(), \
+                                               register_map = reg_map_defs, \
+                                               reg_last_addr = hex(last_reg_addr), \
+                                               reg_num = reg_num)
+    rmh_f.write(rmh_content)
+    
     print("File mb_regs.h is created")
     
     '''Registers functions source file'''
+    #open template file
+    with open("mb_regs_c.template") as ht:
+        mbr_template = string.Template(ht.read())
+        
     mbr_f = open('mb_regs.c', 'w', newline='')
-    #Comment
-    mbr_f.write("/**\r\n* This file is created automatically\r\n")
-    mbr_f.write("* Created on: %s\r\n**/\r\n"%(datetime.date.today()))
-    mbr_f.write("\r\n")
-    #includes
-    mbr_f.write("#include \"mb_regs.h\"\r\n")
-    mbr_f.write("\r\n")
-    #typedefs
-    mbr_f.write("typedef enum {REG_READ = 1, REG_WRITE} RegOpMode;\r\n")
-    mbr_f.write("\r\n")
+
     #static variables
     #fill geristers array
-    mbr_f.write("static uint16_t MBRegs[REG_NUM] = {\r\n")
+    reg_def_vals = ""
     for row in reg_map:
-        mbr_f.write("\t%s"%(row['Default']))
+        reg_def_vals += "\t%s"%(row['Default'])
         if row != reg_map[-1]:
-            mbr_f.write(",")
-        mbr_f.write("\t/*%s*/\r\n"%(row['Name'].upper()))
-    mbr_f.write("}\r\n")
-    mbr_f.write("\r\n")
-    
-    #function prototypes
-    mbr_f.write("uint32_t RegCheckOp(uint16_t addr, RegOpMode op);\r\n")
-    mbr_f.write("uint32_t RegCheckVal(uint16_t addr, uint16_t val);\r\n")
-    mbr_f.write("\r\n")
-    
-    #functions
-    mbr_f.write("/*Check register operation permission*/\r\n")
-    mbr_f.write("uint32_t RegCheckOp(uint16_t addr, RegOpMode op)\r\n")
-    mbr_f.write("{\r\n")
+            reg_def_vals += ","
+            reg_def_vals += "\t/*%s*/\r\n"%(row['Name'].upper())
+        else:
+            reg_def_vals += "\t/*%s*/"%(row['Name'].upper())
+     
+    #checker functions
+    reg_op_check = ""
     for row in reg_map:
-        mbr_f.write("\tif (addr == REG_%s_ADDR && !(op & REG_%s_OPER)) return 0;\r\n"%(row['Name'].upper(),row['Name'].upper()))
-    mbr_f.write("\r\n")
-    mbr_f.write("\treturn 1;\r\n")
-    mbr_f.write("}\r\n")
+        reg_op_check += "\tif (addr == REG_%s_ADDR && !(op & REG_%s_OPER)) return 0;\r\n"%(row['Name'].upper(),row['Name'].upper())
     
-    mbr_f.write("/*Checks register values restrictions*/\r\n")
-    mbr_f.write("uint32_t RegCheckVal(uint16_t addr, uint16_t val)\r\n")
-    mbr_f.write("{\r\n")
+    reg_val_check = ""
     for row in reg_map:
-        mbr_f.write("\tif (addr == REG_%s_ADDR && (val < REG_%s_MIN || val > REG_%s_MAX)) return 0;\r\n"%(row['Name'].upper(),row['Name'].upper(),row['Name'].upper()))
-    mbr_f.write("\r\n")
-    mbr_f.write("\treturn 1;\r\n")
-    mbr_f.write("}\r\n")
+        reg_val_check += "\tif (addr == REG_%s_ADDR && (val < REG_%s_MIN || val > REG_%s_MAX)) return 0;\r\n"%(row['Name'].upper(),row['Name'].upper(),row['Name'].upper())
+    
+    #fill template and write to file        
+    mbr_content = mbr_template.safe_substitute(date=datetime.date.today(), \
+                                               def_vals = reg_def_vals, \
+                                               op_check = reg_op_check, \
+                                               val_check = reg_val_check)
+    mbr_f.write(mbr_content)
     
     print("File mb_regs.c is created")
             

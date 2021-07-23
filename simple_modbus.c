@@ -8,9 +8,6 @@
 #include "simple_modbus.h"
 #include "string.h"
 #include "mb_crc.h"
-#if MODBUS_USE_US_TIMER
-#include "us_timer.h"
-#endif
 
 #define MODBUS_FUNC_RDCOIL 		1 	/*Read Coil*/
 #define MODBUS_FUNC_RDDINP 		2 	/*Read discrete input*/
@@ -51,13 +48,6 @@ MBerror SmplModbus_Start(smpl_modbus_t *mb)
 
 	mb->rx_byte = mb->rx_buf;
 	mb->mbmode = RX;
-
-#if MODBUS_USE_US_TIMER
-	if (mb->htim == NULL) {
-		return MODBUS_ERR_PARAM;
-	}
-	us_timer_init();
-#endif
 
 	MBRTU_TRACE("Starting Modbus RTU with Address %d\r\n", mb->addr);
 
@@ -352,7 +342,7 @@ static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len)
 {
 	DE_HIGH();
 #if MODBUS_USE_US_TIMER
-	us_timer_start(mb->htim, 100);
+	mb->us_delay(100);
 #endif
 
 #if MODBUS_NONBLOCKING_TX
@@ -360,7 +350,7 @@ static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len)
 #else
 	mb->tx_func(mb->tx_buf, len);
 #if MODBUS_USE_US_TIMER
-	us_timer_start(mb->htim, 100);
+	mb->us_delay(100);
 #endif
 	DE_LOW();
 #endif
