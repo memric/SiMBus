@@ -1,9 +1,15 @@
+/*
+ * simple_modbus_conf.h
+ *
+ * Simple ModBus RTU configuration file
+ *
+ * Author: Valeriy Chudnikov
+ */
+
 #ifndef SIMPLE_MASTER_H_
 #define SIMPLE_MASTER_H_
 
 #include "simple_modbus_conf.h"
-
-//#define RX_MAX_LEN 256
 
 typedef struct {
 	MBerror (*itfs_write)(uint8_t *data, uint32_t len);
