@@ -52,7 +52,7 @@ MBerror SmplModbus_Start(smpl_modbus_t *mb)
 	mb->rx_byte = mb->rx_buf;
 	mb->mbmode = RX;
 
-	MBRTU_TRACE("Starting Modbus RTU with Address %d\r\n", mb->addr);
+	MODBUS_TRACE("Starting Modbus RTU with Address %d\r\n", mb->addr);
 
 	DE_LOW();
 	mb->rx_func(mb->rx_byte);
