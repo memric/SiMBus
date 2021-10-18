@@ -33,6 +33,14 @@
 #define ARR2U16(a)  			(uint16_t) (*(a) << 8) | *( (a)+1 )
 #define U162ARR(b,a)  			*(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
 
+#ifndef MODBUS_TCP_TASK_STACK
+#define MODBUS_TCP_TASK_STACK	512
+#endif
+
+#ifndef MODBUS_TCP_TASK_PRIORITY
+#define MODBUS_TCP_TASK_PRIORITY	(tskIDLE_PRIORITY + 3)
+#endif
+
 typedef struct {
 	uint16_t tran_id; //transaction ID
 	uint16_t prot_id; //protocol ID
@@ -53,8 +61,9 @@ int32_t MBTCP_Init(void)
 	MODBUS_TRACE("TCP Modbus Initialization\r\n");
 
 	/* Create Start thread */
-	if (xTaskCreate(MBTCP_Thread, "Modbus task", 1024*2, NULL, configMAX_PRIORITIES-2, &hMBTCP_Task) != pdPASS)
+	if (xTaskCreate(MBTCP_Thread, "Modbus task", MODBUS_TCP_TASK_STACK, NULL, MODBUS_TCP_TASK_PRIORITY, &hMBTCP_Task) != pdPASS)
 	{
+		MODBUS_TRACE("TCP Modbus Task Initialization failure\r\n");
 		return -1;
 	}
 
