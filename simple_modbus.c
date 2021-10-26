@@ -27,6 +27,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb);
 static void SmplModbus_SendException(smpl_modbus_t *mb, MBerror excpt);
 static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len);
 #if MODBUS_REGS_ENABLE
+extern MBerror RegInit(void *arg);
 extern MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
 extern MBerror RegWriteCallback(uint16_t addr, uint16_t val);
 #endif
@@ -36,7 +37,7 @@ extern MBerror CoilsInputsWriteCallback(uint16_t addr, uint16_t num, uint8_t *co
 extern MBerror CoilWriteCallback(uint16_t addr, uint8_t val);
 #endif
 
-MBerror SmplModbus_Start(smpl_modbus_t *mb)
+MBerror SmplModbus_Init(smpl_modbus_t *mb)
 {
 	MB_ASSERT(mb != NULL);
 	MB_ASSERT(mb->addr > 0);
@@ -56,6 +57,13 @@ MBerror SmplModbus_Start(smpl_modbus_t *mb)
 
 	DE_LOW();
 	mb->rx_func(mb->rx_byte);
+
+#if MODBUS_REGS_ENABLE
+	if (RegInit(NULL) != MODBUS_ERR_OK)
+	{
+		return MODBUS_ERR_SYS;
+	}
+#endif
 
 	return MODBUS_ERR_OK;
 }

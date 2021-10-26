@@ -42,7 +42,7 @@ typedef struct {
 #endif
 } smpl_modbus_t;
 
-MBerror SmplModbus_Start(smpl_modbus_t *mb);
+MBerror SmplModbus_Init(smpl_modbus_t *mb);
 void SmplModbus_Poll(smpl_modbus_t *mb);
 void SmplModbus_ByteReceivedCallback(smpl_modbus_t *mb);
 #if MODBUS_NONBLOCKING_TX

@@ -50,6 +50,11 @@ typedef struct {
 
 static TaskHandle_t hMBTCP_Task = NULL;
 static struct netconn *conn = NULL;
+#if MODBUS_REGS_ENABLE
+extern MBerror RegInit(void *arg);
+extern MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
+extern MBerror RegWriteCallback(uint16_t addr, uint16_t val);
+#endif
 
 static void MBTCP_Thread(void *argument);
 uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata);
@@ -59,6 +64,13 @@ int32_t MBTCP_Init(void)
 	if (hMBTCP_Task != NULL) return 1;
 
 	MODBUS_TRACE("TCP Modbus Initialization\r\n");
+
+#if MODBUS_REGS_ENABLE
+	if (RegInit(NULL) != MODBUS_ERR_OK)
+	{
+		return -1;
+	}
+#endif
 
 	/* Create Start thread */
 	if (xTaskCreate(MBTCP_Thread, "Modbus task", MODBUS_TCP_TASK_STACK, NULL, MODBUS_TCP_TASK_PRIORITY, &hMBTCP_Task) != pdPASS)

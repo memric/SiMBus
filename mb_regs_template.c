@@ -16,6 +16,18 @@ static uint16_t MBRegs[REG_NUM] = {0};
 uint32_t RegCheckOp(uint16_t addr, RegOpMode op);
 uint32_t RegCheckVal(uint16_t addr, uint16_t val);
 
+/**
+ * @brief Registers initialization. Called on ModBus initialization
+ * @param arg
+ * @return Error code
+ */
+MBerror RegInit(void *arg)
+{
+	(void) arg;
+
+	return MODBUS_ERR_OK;
+}
+
 /*Functions 03 & 04 - Read Holding/Input Registers Callback*/
 MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs)
 {

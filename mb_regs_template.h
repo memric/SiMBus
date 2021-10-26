@@ -15,6 +15,7 @@
 #define MODBUS_ERR_ILLEGFUNC 	1
 #define MODBUS_ERR_ILLEGADDR 	2
 #define MODBUS_ERR_ILLEGVAL  	3
+#define MODBUS_ERR_SYS		  	10
 
 #define SET_REG_ADDR(reg, addr)	const uint16_t ##reg_ADDR = (addr)
 
@@ -33,6 +34,7 @@
 
 typedef uint8_t MBerror;
 
+MBerror RegInit(void *arg);
 MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
 MBerror RegWriteCallback(uint16_t addr, uint16_t val);
 MBerror RegsWriteCallback(uint16_t addr, uint8_t *pval, uint16_t num);
