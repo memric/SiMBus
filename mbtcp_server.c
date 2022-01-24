@@ -216,7 +216,7 @@ uint8_t* MBTCP_resp_pack(mbap_t *mbap_header, uint8_t fcode, uint32_t data_len, 
 		U162ARR(mbap_header->tran_id, outdata);
 		U162ARR(mbap_header->prot_id, outdata + 2);
 		U162ARR(mbap_header->plen, outdata + 4);
-		U162ARR(mbap_header->unit_id, outdata + 6);
+		*(outdata + 6) = mbap_header->unit_id;
 		*(outdata + 7) = fcode;
 
 		*outlen = MBAP_SIZE + 1 + data_len;
@@ -238,7 +238,10 @@ uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata)
 	mbap.plen = ARR2U16(indata + 4); //length
 	mbap.unit_id = *(indata + 6); //Unit ID
 
-	if (mbap.prot_id != 0) MBTCP_TRACE("Incorrect Protocol ID: %d\r\n", mbap.prot_id);
+	if (mbap.prot_id != 0)
+	{
+		MBTCP_TRACE("Incorrect Protocol ID: %d\r\n", mbap.prot_id);
+	}
 
 	/*--PDU---*/
 	uint8_t fcode = *(indata + 7); //Function code
