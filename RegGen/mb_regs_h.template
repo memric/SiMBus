@@ -9,6 +9,12 @@
 #include "simple_modbus_conf.h"
 #include <stdint.h>
 
+#define MODBUS_ERR_OK 				0
+#define MODBUS_ERR_ILLEGFUNC 		1
+#define MODBUS_ERR_ILLEGADDR 		2
+#define MODBUS_ERR_ILLEGVAL  		3
+#define MODBUS_ERR_SYS		  		10
+
 ${register_map}
 #define REG_LAST_ADDR	${reg_last_addr} /*Last register address*/
 #define REG_NUM			${reg_num} /*Total registers number*/

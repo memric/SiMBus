@@ -11,6 +11,17 @@ from argparse import ArgumentParser
 REG_MIN_VALUE = 0
 REG_MAX_VALUE = 65535
 
+#Converts string to int value
+def str_tield2int(field):
+    try:
+        if field.startswith('0x'):
+            val = int(field.replace("0x",""), 16)
+        else:
+            val = int(field)
+    except ValueError:
+        val = 0
+    return val
+
 def main(argv=None): # IGNORE:C0111
     '''Command line options.'''
 
@@ -45,17 +56,20 @@ def main(argv=None): # IGNORE:C0111
         '''Check CSV table content'''
         try:
             for row in reader:
+                # if row['Name'].upper() == 'RESERVED':
+                #     continue
+                
                 addr = int(row['Address'])
                 if addr < REG_MIN_VALUE or addr > REG_MAX_VALUE:
                     print("Error: Address of register \"%s\" is not correct"%(row['Name']))
                     sys.exit(-1)
                     
-                min = int(row['Min'])
+                min = str_tield2int(row['Min'])
                 if min < REG_MIN_VALUE or min > REG_MAX_VALUE:
                     print("Error: Minimum value of register \"%s\" is not correct"%(row['Name']))
                     sys.exit(-1)
                     
-                max = int(row['Max'])
+                max = str_tield2int(row['Max'])
                 if max < REG_MIN_VALUE or max > REG_MAX_VALUE:
                     print("Error: Maximum value of register \"%s\" is not correct"%(row['Name']))
                     sys.exit(-1)
@@ -63,14 +77,24 @@ def main(argv=None): # IGNORE:C0111
                 if min >= max:
                     print("Warning: Minimum value of register \"%s\" is equal or greiter than maximum value"%(row['Name']))
                     
-                default = int(row['Default'])
+                default = str_tield2int(row['Default'])
                 if default < REG_MIN_VALUE or default > REG_MAX_VALUE:
                     print("Error: Default value of register \"%s\" is not correct"%(row['Name']))
                     sys.exit(-1)
                     
-                print("Register: \"%s\"; Addr: %s; Min: %d; Max: %d; Default: %d"%(row['Name'], hex(addr), min, max, default))
+                if row['Mode'].upper() == 'R':
+                    oper = 'REG_READ'
+                elif row['Mode'].upper() == 'W':
+                    oper = 'REG_WRITE'
+                elif row['Mode'].upper() == 'RW' or row['Mode'].upper() == 'R/W':
+                    oper = '(REG_READ | REG_WRITE)'
+                else:
+                    print("Error: Mode of register \"%s\" is not correct"%(row['Name']))
+                                       
+                print("Register: \"%s\"; Addr: %s; Min: %d; Max: %d; Default: %d; Oper: %s"%(row['Name'], hex(addr), min, max, default, oper))
                 
-                reg_map.append(row)
+                reg_map.append({'Address':addr, 'Min':min, 'Max':max, 'Default':default, 'Mode':oper, 'Name':row['Name'], 'Comment':row['Comment']})
+                
                 if addr > last_reg_addr:
                     last_reg_addr = addr
         except csv.Error as e:
@@ -94,24 +118,21 @@ def main(argv=None): # IGNORE:C0111
     reg_map_defs = ""
     
     for row in reg_map:
-        addr = int(row['Address'])
-        min = int(row['Min'])
-        max = int(row['Max'])
-        default = int(row['Default'])
-        oper = 0
-        if row['Mode'].upper() == 'R':
-            oper = 1
-        elif row['Mode'].upper() == 'W':
-            oper = 2
-        elif row['Mode'].upper() == 'RW':
-            oper = 3
+        if row['Name'].upper() == 'RESERVED':
+            continue
+        
+        addr = row['Address']
+        min = row['Min']
+        max = row['Max']
+        default = row['Default']
+        oper = row['Mode']
             
-        reg_map_defs += "/* Register: %s\r\n* Addr: %s; Min: %d; Max: %d; Default: %d\r\n*/\r\n"%(row['Comment'], hex(addr), min, max, default)
+        reg_map_defs += "/* Register: %s\r\n* Addr: %s; Min: %d; Max: %d; Default: %d; Oper: %s\r\n*/\r\n"%(row['Comment'], hex(addr), min, max, default, oper)
         reg_map_defs += "#define REG_%s_ADDR\t%s\r\n"%(row['Name'].upper(), hex(addr))
         reg_map_defs += "#define REG_%s_MIN\t%d\r\n"%(row['Name'].upper(), min)
         reg_map_defs += "#define REG_%s_MAX\t%d\r\n"%(row['Name'].upper(), max)
         reg_map_defs += "#define REG_%s_DEF\t%d\r\n"%(row['Name'].upper(), default)
-        reg_map_defs += "#define REG_%s_OPER\t%d\r\n"%(row['Name'].upper(), oper)
+        reg_map_defs += "#define REG_%s_OPER\t%s\r\n"%(row['Name'].upper(), oper)
         reg_map_defs += "\r\n"
     
     #fill template and write to file        
@@ -134,7 +155,10 @@ def main(argv=None): # IGNORE:C0111
     #fill geristers array
     reg_def_vals = ""
     for row in reg_map:
-        reg_def_vals += "\t%s"%(row['Default'])
+        if row['Name'].upper() == 'RESERVED':
+            reg_def_vals += "\t0"
+        else:
+            reg_def_vals += "\tREG_%s_DEF"%(row['Name'].upper())
         if row != reg_map[-1]:
             reg_def_vals += ","
             reg_def_vals += "\t/*%s*/\r\n"%(row['Name'].upper())
@@ -144,11 +168,17 @@ def main(argv=None): # IGNORE:C0111
     #checker functions
     reg_op_check = ""
     for row in reg_map:
-        reg_op_check += "\tif (addr == REG_%s_ADDR && !(op & REG_%s_OPER)) return 0;\r\n"%(row['Name'].upper(),row['Name'].upper())
+        if row['Name'].upper() == 'RESERVED':
+            continue
+        
+        reg_op_check += "\tif ((addr == REG_%s_ADDR) && !(op & REG_%s_OPER)) return 0;\r\n"%(row['Name'].upper(),row['Name'].upper())
     
     reg_val_check = ""
     for row in reg_map:
-        reg_val_check += "\tif (addr == REG_%s_ADDR && (val < REG_%s_MIN || val > REG_%s_MAX)) return 0;\r\n"%(row['Name'].upper(),row['Name'].upper(),row['Name'].upper())
+        if row['Name'].upper() == 'RESERVED':
+            continue
+        
+        reg_val_check += "\tif ((addr == REG_%s_ADDR) && ((val < REG_%s_MIN) || (val > REG_%s_MAX))) return 0;\r\n"%(row['Name'].upper(),row['Name'].upper(),row['Name'].upper())
     
     #fill template and write to file        
     mbr_content = mbr_template.safe_substitute(date=datetime.date.today(), \

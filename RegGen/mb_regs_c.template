@@ -7,6 +7,9 @@
 
 typedef enum {REG_READ = 1, REG_WRITE} RegOpMode;
 
+/**
+ * @brief Registers array initialization with default values
+ */
 static uint16_t MBRegs[REG_NUM] = {
 ${def_vals}
 };
@@ -19,7 +22,7 @@ uint32_t RegCheckVal(uint16_t addr, uint16_t val);
  * @param addr
  * @param num
  * @param regs
- * @return
+ * @return Error code
  */
 MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs)
 {
@@ -54,7 +57,7 @@ MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs)
  * @brief Function 06 - Preset Single Register Callback
  * @param addr
  * @param val
- * @return
+ * @return Error code
  */
 MBerror RegWriteCallback(uint16_t addr, uint16_t val)
 {
@@ -93,7 +96,7 @@ MBerror RegWriteCallback(uint16_t addr, uint16_t val)
  * @param addr
  * @param pval
  * @param num
- * @return
+ * @return Error code
  */
 MBerror RegsWriteCallback(uint16_t addr, uint8_t *pval, uint16_t num)
 {
