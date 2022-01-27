@@ -1,0 +1,4 @@
+Name,Address,Mode,Min,Max,Default,Comment
+Status,0,r,0,100,0,Reg 1
+Value1,1,w,0,255,10,Reg 2
+Value2,2,rw,0,3,20,Reg 3

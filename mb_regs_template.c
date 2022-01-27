@@ -5,7 +5,7 @@
  *      Author: Valeriy Chudnikov
  */
 
-#include "mb_regs.h"
+#include "mb_regs_template.h"
 #include "simple_modbus_conf.h"
 #include <string.h>
 
@@ -179,17 +179,12 @@ uint32_t RegCheckOp(uint16_t addr, RegOpMode op)
 {
 	if (op == REG_READ)
 	{
-		if (addr == REG_PIN1 || addr == REG_PIN2) return 0;
-
 		return 1;
 	}
 	else
 	{
-		if (addr < REG_PIN1) return 0;
-		if (addr >= REG_RANGE_BEANS && addr <= REG_VEL_RES) return 0;
-		if (addr >= REG_ZONE_MON) return 0;
-
-		return 1;
+		if (addr == REG_STATUS) return 0;
+		else return 1;
 	}
 
 	return 0;

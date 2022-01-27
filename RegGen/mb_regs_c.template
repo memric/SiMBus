@@ -1,0 +1,211 @@
+/**
+* This file is created automatically
+* Created on: ${date}
+**/
+
+#include "mb_regs.h"
+
+typedef enum {REG_READ = 1, REG_WRITE} RegOpMode;
+
+/**
+ * @brief Registers array initialization with default values
+ */
+static uint16_t MBRegs[REG_NUM] = {
+${def_vals}
+};
+
+uint32_t RegCheckOp(uint16_t addr, RegOpMode op);
+uint32_t RegCheckVal(uint16_t addr, uint16_t val);
+
+/**
+ * @brief Functions 03 & 04 - Read Holding/Input Registers Callback
+ * @param addr
+ * @param num
+ * @param regs
+ * @return Error code
+ */
+MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs)
+{
+	MBerror err = MODBUS_ERR_OK;
+	uint16_t i;
+
+	if ((addr < REG_NUM) && (addr + num <= REG_NUM))
+	{
+		for (i = 0; i < num; i++)
+		{
+			if (!RegCheckOp(addr + i, REG_READ))
+			{
+				err = MODBUS_ERR_ILLEGADDR;
+				break;
+			}
+		}
+	}
+	else
+	{
+		err = MODBUS_ERR_ILLEGADDR;
+	}
+
+	if (err == MODBUS_ERR_OK)
+	{
+		*regs = &MBRegs[addr];
+	}
+
+	return err;
+}
+
+/**
+ * @brief Function 06 - Preset Single Register Callback
+ * @param addr
+ * @param val
+ * @return Error code
+ */
+MBerror RegWriteCallback(uint16_t addr, uint16_t val)
+{
+	MBerror err = MODBUS_ERR_OK;
+
+	if (addr < REG_NUM)
+	{
+		/*Check permission & value*/
+		if (RegCheckOp(addr, REG_WRITE))
+		{
+			if (RegCheckVal(addr, val))
+			{
+				MBRegs[addr] = val;
+				MBRegUpdated(addr, val);
+			}
+			else
+			{
+				err = MODBUS_ERR_ILLEGVAL;
+			}
+		}
+		else
+		{
+			err = MODBUS_ERR_ILLEGADDR;
+		}
+	}
+	else
+	{
+		err = MODBUS_ERR_ILLEGADDR;
+	}
+
+	return err;
+}
+
+/**
+ * @brief Function 16 - Preset Multiple Registers Callback
+ * @param addr
+ * @param pval
+ * @param num
+ * @return Error code
+ */
+MBerror RegsWriteCallback(uint16_t addr, uint8_t *pval, uint16_t num)
+{
+	MBerror err = MODBUS_ERR_OK;
+	uint32_t i;
+
+	if ((addr < REG_NUM) && (addr + num <= REG_NUM))
+	{
+		for (i = 0; i < num; i++)
+		{
+			/*Check permission & value*/
+			if (RegCheckOp(addr, REG_WRITE))
+			{
+				if (RegCheckVal(addr, ARR2U16(pval)))
+				{
+					MBRegs[addr] = ARR2U16(pval);
+					MBRegUpdated(addr, ARR2U16(pval));
+				}
+				else
+				{
+					err = MODBUS_ERR_ILLEGVAL;
+				}
+			}
+			else
+			{
+				err = MODBUS_ERR_ILLEGADDR;
+			}
+
+			addr++;
+			pval += 2;
+		}
+	}
+	else
+	{
+		err = MODBUS_ERR_ILLEGADDR;
+	}
+
+	return err;
+}
+
+/**
+ * @brief Application function for register value writing
+ * @param addr Register address
+ * @param val Register value
+ * @param err Pointer to error code storage variable
+ */
+void RegSetValue(uint16_t addr, uint16_t val, MBerror *err)
+{
+	if (addr < REG_NUM)
+	{
+		*err = MODBUS_ERR_OK;
+		MBRegs[addr] = val;
+	}
+	else
+	{
+		*err = MODBUS_ERR_ILLEGADDR;
+	}
+}
+
+/**
+ * @brief Application function for register value reading
+ * @param addr Register address
+ * @param err Pointer to error code storage variable
+ * @return Register value
+ */
+uint16_t RegGetValue(uint16_t addr, MBerror *err)
+{
+	if (addr < REG_NUM)
+	{
+		*err = MODBUS_ERR_OK;
+		return MBRegs[addr];
+	}
+	else
+	{
+		*err = MODBUS_ERR_ILLEGADDR;
+		return 0;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Checks register operation permission
+ * @param addr
+ * @param op
+ * @return Returns 1 if permission available
+ */
+uint32_t RegCheckOp(uint16_t addr, RegOpMode op)
+{
+${op_check}
+	return 1;
+}
+
+/**
+ * @brief Checks register values restrictions
+ * @param addr
+ * @param val
+ * @return Returns 1 if permission available
+ */
+uint32_t RegCheckVal(uint16_t addr, uint16_t val)
+{
+${val_check}
+	return 1;
+}
+
+/**
+ * @brief Register update callback
+ */
+__weak void MBRegUpdated(uint16_t addr, uint16_t val)
+{
+
+}

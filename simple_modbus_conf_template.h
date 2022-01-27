@@ -22,6 +22,12 @@
 #define MODBUS_NONBLOCKING_TX	0	/*Use non blocking Tx*/
 #define MODBUS_RXWAIT_TIME		5
 
+/*Error codes*/
+#define MODBUS_ERR_OK 			0
+#define MODBUS_ERR_ILLEGFUNC 	1
+#define MODBUS_ERR_ILLEGADDR 	2
+#define MODBUS_ERR_ILLEGVAL  	3
+
 #if MODBUS_TRACE_ENABLE
 #define MBRTU_TRACE 			printf
 #else
@@ -39,5 +45,7 @@
 #define MODBUS_GET_TICK			HAL_GetTick()
 
 #define MB_ASSERT				assert
+
+typedef uint16_t MBerror;			/*Error type*/
 
 #endif /* SIMPLE_MODBUS_CONF_H_ */

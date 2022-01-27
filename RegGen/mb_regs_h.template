@@ -1,0 +1,30 @@
+/**
+* This file is created automatically
+* Created on: ${date}
+**/
+
+#ifndef MB_REGS_H_
+#define MB_REGS_H_
+
+#include "simple_modbus_conf.h"
+#include <stdint.h>
+
+#define MODBUS_ERR_OK 				0
+#define MODBUS_ERR_ILLEGFUNC 		1
+#define MODBUS_ERR_ILLEGADDR 		2
+#define MODBUS_ERR_ILLEGVAL  		3
+#define MODBUS_ERR_SYS		  		10
+
+${register_map}
+#define REG_LAST_ADDR	${reg_last_addr} /*Last register address*/
+#define REG_NUM			${reg_num} /*Total registers number*/
+
+#define ARR2U16(a)		(uint16_t) (*(a) << 8) | *( (a)+1 )
+#define U162ARR(b,a)	*(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
+
+void RegSetValue(uint16_t addr, uint16_t val, MBerror *err);
+uint16_t RegGetValue(uint16_t addr, MBerror *err);
+void MBRegUpdated(uint16_t addr, uint16_t val);
+
+#endif /*MB_REGS_H_*/
+
