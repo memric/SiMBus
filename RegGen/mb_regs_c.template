@@ -18,16 +18,36 @@ uint32_t RegCheckOp(uint16_t addr, RegOpMode op);
 uint32_t RegCheckVal(uint16_t addr, uint16_t val);
 
 /**
- * @brief Functions 03 & 04 - Read Holding/Input Registers Callback
- * @param addr
- * @param num
- * @param regs
+ * @brief Registers initialization. Called on ModBus initialization
+ * @param arg
  * @return Error code
  */
-MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs)
+MBerror RegInit(void *arg)
+{
+	(void) arg;
+	
+	/* USER CODE BEGIN */
+
+	/* USER CODE END */
+
+	return MODBUS_ERR_OK;
+}
+
+/**
+ * @brief Functions 03 & 04 - Read Holding/Input Registers Callback
+ * @param addr Registers start address
+ * @param num Registers number
+ * @param pval Pointer to array will contain registers values
+ * @return Error code
+ */
+MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval)
 {
 	MBerror err = MODBUS_ERR_OK;
 	uint16_t i;
+	
+	MBRegLock();
+	
+	MODBUS_TRACE("Func. 03/04 (Read regs). Addr: %d, Num: %d\r\n", addr, num);
 
 	if ((addr < REG_NUM) && (addr + num <= REG_NUM))
 	{
@@ -47,21 +67,27 @@ MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs)
 
 	if (err == MODBUS_ERR_OK)
 	{
-		*regs = &MBRegs[addr];
+		*pval = &MBRegs[addr];
 	}
+	
+	MBRegUnlock();
 
 	return err;
 }
 
 /**
  * @brief Function 06 - Preset Single Register Callback
- * @param addr
- * @param val
+ * @param addr Register address
+ * @param val Value
  * @return Error code
  */
 MBerror RegWriteCallback(uint16_t addr, uint16_t val)
 {
 	MBerror err = MODBUS_ERR_OK;
+	
+	MBRegLock();
+
+	MODBUS_TRACE("Func. 06 (Preset single reg.). Addr: %d, Val: %d\r\n", addr, val);
 
 	if (addr < REG_NUM)
 	{
@@ -87,21 +113,27 @@ MBerror RegWriteCallback(uint16_t addr, uint16_t val)
 	{
 		err = MODBUS_ERR_ILLEGADDR;
 	}
+	
+	MBRegUnlock();
 
 	return err;
 }
 
 /**
  * @brief Function 16 - Preset Multiple Registers Callback
- * @param addr
- * @param pval
- * @param num
+ * @param addr Registers start address
+ * @param num Registers number
+ * @param pval Pointer to array containing registers values
  * @return Error code
  */
-MBerror RegsWriteCallback(uint16_t addr, uint8_t *pval, uint16_t num)
+MBerror RegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval)
 {
 	MBerror err = MODBUS_ERR_OK;
 	uint32_t i;
+	
+	MBRegLock();
+
+	MODBUS_TRACE("Func. 16 (Preset regs). Addr: %d, Num: %d\r\n", addr, num);
 
 	if ((addr < REG_NUM) && (addr + num <= REG_NUM))
 	{
@@ -133,6 +165,8 @@ MBerror RegsWriteCallback(uint16_t addr, uint8_t *pval, uint16_t num)
 	{
 		err = MODBUS_ERR_ILLEGADDR;
 	}
+	
+	MBRegUnlock();
 
 	return err;
 }
@@ -145,6 +179,8 @@ MBerror RegsWriteCallback(uint16_t addr, uint8_t *pval, uint16_t num)
  */
 void RegSetValue(uint16_t addr, uint16_t val, MBerror *err)
 {
+	MBRegLock();
+	
 	if (addr < REG_NUM)
 	{
 		*err = MODBUS_ERR_OK;
@@ -154,6 +190,8 @@ void RegSetValue(uint16_t addr, uint16_t val, MBerror *err)
 	{
 		*err = MODBUS_ERR_ILLEGADDR;
 	}
+	
+	MBRegUnlock();
 }
 
 /**
@@ -164,24 +202,29 @@ void RegSetValue(uint16_t addr, uint16_t val, MBerror *err)
  */
 uint16_t RegGetValue(uint16_t addr, MBerror *err)
 {
+	uint16_t retval = 0;
+	MBRegLock();
+	
 	if (addr < REG_NUM)
 	{
 		*err = MODBUS_ERR_OK;
-		return MBRegs[addr];
+		retval = MBRegs[addr];
 	}
 	else
 	{
 		*err = MODBUS_ERR_ILLEGADDR;
-		return 0;
+		retval = 0;
 	}
+	
+	MBRegUnlock();
 
-	return 0;
+	return retval;
 }
 
 /**
  * @brief Checks register operation permission
- * @param addr
- * @param op
+ * @param addr Register address
+ * @param op Operation code
  * @return Returns 1 if permission available
  */
 uint32_t RegCheckOp(uint16_t addr, RegOpMode op)
@@ -191,9 +234,9 @@ ${op_check}
 }
 
 /**
- * @brief Checks register values restrictions
- * @param addr
- * @param val
+ * @brief Checks register value restrictions
+ * @param addr Register address
+ * @param val Value
  * @return Returns 1 if permission available
  */
 uint32_t RegCheckVal(uint16_t addr, uint16_t val)
@@ -209,3 +252,20 @@ __weak void MBRegUpdated(uint16_t addr, uint16_t val)
 {
 
 }
+
+/**
+ * @brief Locks access to registers
+ */
+__weak void MBRegLock(void)
+{
+	/*Take mutex here*/
+}
+
+/**
+ * @brief Unlocks access to registers
+ */
+__weak void MBRegUnlock(void)
+{
+	/*Give mutex here*/
+}
+

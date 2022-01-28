@@ -82,12 +82,8 @@ def main(argv=None): # IGNORE:C0111
                     print("Error: Default value of register \"%s\" is not correct"%(row['Name']))
                     sys.exit(-1)
                     
-                if row['Mode'].upper() == 'R':
-                    oper = 'REG_READ'
-                elif row['Mode'].upper() == 'W':
-                    oper = 'REG_WRITE'
-                elif row['Mode'].upper() == 'RW' or row['Mode'].upper() == 'R/W':
-                    oper = '(REG_READ | REG_WRITE)'
+                if row['Mode'].upper() == 'R' or row['Mode'].upper() == 'W' or row['Mode'].upper() == 'RW' or row['Mode'].upper() == 'R/W':
+                    oper = row['Mode'].upper()
                 else:
                     print("Error: Mode of register \"%s\" is not correct"%(row['Name']))
                                        
@@ -126,13 +122,20 @@ def main(argv=None): # IGNORE:C0111
         max = row['Max']
         default = row['Default']
         oper = row['Mode']
+        
+        if oper == 'R':
+            oper_mode = 'REG_READ'
+        elif oper == 'W':
+            oper_mode = 'REG_WRITE'
+        elif oper == 'RW' or oper == 'R/W':
+            oper_mode = '(REG_READ | REG_WRITE)'
             
         reg_map_defs += "/* Register: %s\r\n* Addr: %s; Min: %d; Max: %d; Default: %d; Oper: %s\r\n*/\r\n"%(row['Comment'], hex(addr), min, max, default, oper)
         reg_map_defs += "#define REG_%s_ADDR\t%s\r\n"%(row['Name'].upper(), hex(addr))
         reg_map_defs += "#define REG_%s_MIN\t%d\r\n"%(row['Name'].upper(), min)
         reg_map_defs += "#define REG_%s_MAX\t%d\r\n"%(row['Name'].upper(), max)
         reg_map_defs += "#define REG_%s_DEF\t%d\r\n"%(row['Name'].upper(), default)
-        reg_map_defs += "#define REG_%s_OPER\t%s\r\n"%(row['Name'].upper(), oper)
+        reg_map_defs += "#define REG_%s_OPER\t%s\r\n"%(row['Name'].upper(), oper_mode)
         reg_map_defs += "\r\n"
     
     #fill template and write to file        

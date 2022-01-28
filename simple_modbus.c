@@ -302,7 +302,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 						err = MODBUS_ERR_ILLEGVAL;
 					}
 
-					err = RegsWriteCallback(start_addr, &mb->rx_buf[7], points_num);
+					err = RegsWriteCallback(start_addr, points_num, &mb->rx_buf[7]);
 
 					if (err)
 					{
@@ -327,7 +327,9 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 #endif
 			break;
 
-			default: break;//SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);
+			default:
+				/*SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);*/
+				break;
 		}
 	}
 }
