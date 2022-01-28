@@ -26,14 +26,12 @@ ${register_map}
 #define ARR2U16(a)		(uint16_t) (*(a) << 8) | *( (a)+1 )
 #define U162ARR(b,a)	*(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
 
-typedef uint16_t MBerror;
-
-MBerror RegInit(void *arg);
-MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval);
-MBerror RegWriteCallback(uint16_t addr, uint16_t val);
-MBerror RegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval);
-void RegSetValue(uint16_t addr, uint16_t val, MBerror *err);
-uint16_t RegGetValue(uint16_t addr, MBerror *err);
+MBerror MBRegInit(void *arg);
+MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval);
+MBerror MBRegWriteCallback(uint16_t addr, uint16_t val);
+MBerror MBRegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval);
+void MBRegSetValue(uint16_t addr, uint16_t val, MBerror *err);
+uint16_t MBRegGetValue(uint16_t addr, MBerror *err);
 void MBRegUpdated(uint16_t addr, uint16_t val);
 void MBRegLock(void);
 void MBRegUnlock(void);

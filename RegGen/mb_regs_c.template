@@ -14,15 +14,15 @@ static uint16_t MBRegs[REG_NUM] = {
 ${def_vals}
 };
 
-uint32_t RegCheckOp(uint16_t addr, RegOpMode op);
-uint32_t RegCheckVal(uint16_t addr, uint16_t val);
+uint32_t MBRegCheckOp(uint16_t addr, RegOpMode op);
+uint32_t MBRegCheckVal(uint16_t addr, uint16_t val);
 
 /**
  * @brief Registers initialization. Called on ModBus initialization
  * @param arg
  * @return Error code
  */
-MBerror RegInit(void *arg)
+MBerror MBRegInit(void *arg)
 {
 	(void) arg;
 	
@@ -40,7 +40,7 @@ MBerror RegInit(void *arg)
  * @param pval Pointer to array will contain registers values
  * @return Error code
  */
-MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval)
+MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval)
 {
 	MBerror err = MODBUS_ERR_OK;
 	uint16_t i;
@@ -53,7 +53,7 @@ MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval)
 	{
 		for (i = 0; i < num; i++)
 		{
-			if (!RegCheckOp(addr + i, REG_READ))
+			if (!MBRegCheckOp(addr + i, REG_READ))
 			{
 				err = MODBUS_ERR_ILLEGADDR;
 				break;
@@ -81,7 +81,7 @@ MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval)
  * @param val Value
  * @return Error code
  */
-MBerror RegWriteCallback(uint16_t addr, uint16_t val)
+MBerror MBRegWriteCallback(uint16_t addr, uint16_t val)
 {
 	MBerror err = MODBUS_ERR_OK;
 	
@@ -92,9 +92,9 @@ MBerror RegWriteCallback(uint16_t addr, uint16_t val)
 	if (addr < REG_NUM)
 	{
 		/*Check permission & value*/
-		if (RegCheckOp(addr, REG_WRITE))
+		if (MBRegCheckOp(addr, REG_WRITE))
 		{
-			if (RegCheckVal(addr, val))
+			if (MBRegCheckVal(addr, val))
 			{
 				MBRegs[addr] = val;
 				MBRegUpdated(addr, val);
@@ -126,7 +126,7 @@ MBerror RegWriteCallback(uint16_t addr, uint16_t val)
  * @param pval Pointer to array containing registers values
  * @return Error code
  */
-MBerror RegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval)
+MBerror MBRegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval)
 {
 	MBerror err = MODBUS_ERR_OK;
 	uint32_t i;
@@ -140,9 +140,9 @@ MBerror RegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval)
 		for (i = 0; i < num; i++)
 		{
 			/*Check permission & value*/
-			if (RegCheckOp(addr, REG_WRITE))
+			if (MBRegCheckOp(addr, REG_WRITE))
 			{
-				if (RegCheckVal(addr, ARR2U16(pval)))
+				if (MBRegCheckVal(addr, ARR2U16(pval)))
 				{
 					MBRegs[addr] = ARR2U16(pval);
 					MBRegUpdated(addr, ARR2U16(pval));
@@ -177,7 +177,7 @@ MBerror RegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval)
  * @param val Register value
  * @param err Pointer to error code storage variable
  */
-void RegSetValue(uint16_t addr, uint16_t val, MBerror *err)
+void MBRegSetValue(uint16_t addr, uint16_t val, MBerror *err)
 {
 	MBRegLock();
 	
@@ -200,7 +200,7 @@ void RegSetValue(uint16_t addr, uint16_t val, MBerror *err)
  * @param err Pointer to error code storage variable
  * @return Register value
  */
-uint16_t RegGetValue(uint16_t addr, MBerror *err)
+uint16_t MBRegGetValue(uint16_t addr, MBerror *err)
 {
 	uint16_t retval = 0;
 	MBRegLock();
@@ -227,7 +227,7 @@ uint16_t RegGetValue(uint16_t addr, MBerror *err)
  * @param op Operation code
  * @return Returns 1 if permission available
  */
-uint32_t RegCheckOp(uint16_t addr, RegOpMode op)
+uint32_t MBRegCheckOp(uint16_t addr, RegOpMode op)
 {
 ${op_check}
 	return 1;
@@ -239,7 +239,7 @@ ${op_check}
  * @param val Value
  * @return Returns 1 if permission available
  */
-uint32_t RegCheckVal(uint16_t addr, uint16_t val)
+uint32_t MBRegCheckVal(uint16_t addr, uint16_t val)
 {
 ${val_check}
 	return 1;

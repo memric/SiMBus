@@ -8,7 +8,7 @@
 #ifndef MBTCP_SERVER_H_
 #define MBTCP_SERVER_H_
 
-#include "mb_regs.h"
+#include "simple_modbus_conf.h"
 
 int32_t MBTCP_Init(void);
 int32_t MBTCP_Deinit(void);

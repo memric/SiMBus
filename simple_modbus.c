@@ -27,14 +27,14 @@ static void SmplModbus_Parser(smpl_modbus_t *mb);
 static void SmplModbus_SendException(smpl_modbus_t *mb, MBerror excpt);
 static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len);
 #if MODBUS_REGS_ENABLE
-extern MBerror RegInit(void *arg);
-extern MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
-extern MBerror RegWriteCallback(uint16_t addr, uint16_t val);
+extern MBerror MBRegInit(void *arg);
+extern MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
+extern MBerror MBRegWriteCallback(uint16_t addr, uint16_t val);
 #endif
 #if MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE
-extern MBerror CoilInpReadCallback(uint16_t addr, uint16_t num, uint8_t **coils);
-extern MBerror CoilsInputsWriteCallback(uint16_t addr, uint16_t num, uint8_t *coils);
-extern MBerror CoilWriteCallback(uint16_t addr, uint8_t val);
+extern MBerror MBCoilInpReadCallback(uint16_t addr, uint16_t num, uint8_t **coils);
+extern MBerror MBCoilsInputsWriteCallback(uint16_t addr, uint16_t num, uint8_t *coils);
+extern MBerror MBCoilWriteCallback(uint16_t addr, uint8_t val);
 #endif
 
 MBerror SmplModbus_Init(smpl_modbus_t *mb)
@@ -59,7 +59,7 @@ MBerror SmplModbus_Init(smpl_modbus_t *mb)
 	mb->rx_func(mb->rx_byte);
 
 #if MODBUS_REGS_ENABLE
-	if (RegInit(NULL) != MODBUS_ERR_OK)
+	if (MBRegInit(NULL) != MODBUS_ERR_OK)
 	{
 		return MODBUS_ERR_SYS;
 	}
@@ -134,7 +134,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 			{
 				/*coils/dinputs read callback*/
 				uint8_t *coil_values;
-				err = CoilInpReadCallback(start_addr, points_num, &coil_values);
+				err = MBCoilInpReadCallback(start_addr, points_num, &coil_values);
 				if (err)
 				{
 					/*send exception*/
@@ -168,7 +168,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 			{
 				/*reg read callback*/
 				uint16_t *reg_values;
-				err = RegReadCallback(start_addr, points_num, &reg_values);
+				err = MBRegReadCallback(start_addr, points_num, &reg_values);
 				if (err)
 				{
 					/*send exception*/
@@ -214,11 +214,11 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 				}
 
 				/*coil write callback*/
-				err = CoilWriteCallback(start_addr, c_val);
+				err = MBCoilWriteCallback(start_addr, c_val);
 				if (err)
 				{
 					/*send exception*/
-					SmplModbus_SendException(mb, func, err);
+					SmplModbus_SendException(mb, err);
 					break;
 				}
 				else
@@ -239,7 +239,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 6))
 			{
 				/*reg write callback*/
-				err = RegWriteCallback(start_addr, val);
+				err = MBRegWriteCallback(start_addr, val);
 				if (err)
 				{
 					/*send exception*/
@@ -264,7 +264,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 			tmp_crc = ARR2U16(&mb->rx_buf[7]);
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 7+val))
 			{
-				err = CoilsInputsWriteCallback(start_addr, points_num, &mb->rx_buf[7]);
+				err = MBCoilsInputsWriteCallback(start_addr, points_num, &mb->rx_buf[7]);
 				if (err)
 				{
 					/*send exception*/
@@ -301,8 +301,10 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 					{
 						err = MODBUS_ERR_ILLEGVAL;
 					}
-
-					err = RegsWriteCallback(start_addr, points_num, &mb->rx_buf[7]);
+					else
+					{
+						err = MBRegsWriteCallback(start_addr, points_num, &mb->rx_buf[7]);
+					}
 
 					if (err)
 					{
