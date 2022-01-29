@@ -9,11 +9,12 @@
 #include "mb_regs.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include "lwip/api.h"
-#include "lwip/netbuf.h"
+#include "lwip/sockets.h"
 #include <string.h>
 
+#ifndef MBTCP_SERVER_PORT
 #define MBTCP_SERVER_PORT 		502
+#endif
 
 #define MODBUS_FUNC_RDCOIL 		1 	/*Read Coil*/
 #define MODBUS_FUNC_RDDINP 		2 	/*Read discrete input*/
@@ -25,11 +26,7 @@
 #define MODBUS_FUNC_WRMREGS 	16  /*Write multiple registers*/
 
 #define MBAP_SIZE 				7
-#define EXCEPT_SIZE 			(MBAP_SIZE + 1 + 1) //MBAP + Func code + Err
-
-#define MBTCP_TRACE 			MODBUS_TRACE
-#define MEMORY_MALLOC(a) 		( pvPortMalloc( (a) ) )
-#define MEMORY_FREE(a) 			( vPortFree( (a) ) )
+#define EXCEPT_SIZE 			(MBAP_SIZE + 1 + 1) /*MBAP + Func code + Err*/
 
 #define ARR2U16(a)  			(uint16_t) (*(a) << 8) | *( (a)+1 )
 #define U162ARR(b,a)  			*(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
@@ -43,153 +40,163 @@
 #endif
 
 typedef struct {
-	uint16_t tran_id; //transaction ID
-	uint16_t prot_id; //protocol ID
-	uint16_t plen; //length
-	uint8_t unit_id; //Unit ID
+	uint16_t tran_id;	/*transaction ID*/
+	uint16_t prot_id;	/*protocol ID*/
+	uint16_t plen;		/*length*/
+	uint8_t unit_id;	/*Unit ID*/
 } mbap_t;
 
 static TaskHandle_t hMBTCP_Task = NULL;
-static struct netconn *conn = NULL;
 #if MODBUS_REGS_ENABLE
 extern MBerror RegInit(void *arg);
 extern MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
 extern MBerror RegWriteCallback(uint16_t addr, uint16_t val);
 #endif
 
-static void MBTCP_Thread(void *argument);
-uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata);
+static void MBTCP_Thread(void *arg);
+static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen);
+static uint16_t MBTCP_exception_pack(MBTCP_Handle_t *mbtcp,
+		mbap_t *mbap_header, uint8_t fcode, MBerror err);
+static uint16_t MBTCP_resp_pack(MBTCP_Handle_t *mbtcp, mbap_t *mbap_header,
+		uint8_t fcode, uint32_t data_len);
 
-int32_t MBTCP_Init(void)
+/**
+ * @brief ModBus TCP initialization
+ * @param mbtcp MBTCP Handler
+ * @return Error code
+ */
+MBerror MBTCP_Init(MBTCP_Handle_t *mbtcp)
 {
-	if (hMBTCP_Task != NULL) return 1;
+	MB_ASSERT(mbtcp != NULL);
+	MB_ASSERT(mbtcp->rx_buf != NULL);
+	MB_ASSERT(mbtcp->tx_buf != NULL);
+	MB_ASSERT(mbtcp->rx_buf_size > 0);
+	MB_ASSERT(mbtcp->tx_buf_size >= EXCEPT_SIZE);
+
+	if (hMBTCP_Task != NULL)
+	{
+		return MODBUS_ERR_SYS;
+	}
 
 	MODBUS_TRACE("TCP Modbus Initialization\r\n");
 
 #if MODBUS_REGS_ENABLE
 	if (MBRegInit(NULL) != MODBUS_ERR_OK)
 	{
-		return -1;
+		return MODBUS_ERR_SYS;
 	}
 #endif
 
 	/* Create Start thread */
-	if (xTaskCreate(MBTCP_Thread, "Modbus task", MODBUS_TCP_TASK_STACK, NULL, MODBUS_TCP_TASK_PRIORITY, &hMBTCP_Task) != pdPASS)
+	if (xTaskCreate(MBTCP_Thread, "Modbus task", MODBUS_TCP_TASK_STACK, mbtcp, MODBUS_TCP_TASK_PRIORITY, &hMBTCP_Task) != pdPASS)
 	{
 		MODBUS_TRACE("TCP Modbus Task Initialization failure\r\n");
-		return -1;
+		return MODBUS_ERR_SYS;
 	}
 
-	return 0;
+	return MODBUS_ERR_OK;
 }
 
-int32_t MBTCP_Deinit(void)
+void MBTCP_Deinit(void)
 {
 	MODBUS_TRACE("Modbus TCP terminating\r\n");
 
 	vTaskDelete(hMBTCP_Task);
 	hMBTCP_Task = NULL;
-	if (conn)
-	{
-		netconn_delete(conn);
-	}
-
-	return 0;
 }
 
-static void MBTCP_Thread(void *argument)
+/**
+ * @brief Main ModBus TCP task
+ * @param argument Unused
+ */
+static void MBTCP_Thread(void *arg)
 {
-	struct netconn *newconn;
-	err_t err;
+	MBTCP_Handle_t *mbtcp = (MBTCP_Handle_t *) arg;
+	int32_t recv_len;
 
-	LWIP_UNUSED_ARG(argument);
+	MODBUS_TRACE("Starting ModBus TCP at port: %d\r\n", MBTCP_SERVER_PORT);
 
-	MODBUS_TRACE("Starting Modbus TCP at port: %d\r\n", MBTCP_SERVER_PORT);
-
-	/* Create a new connection identifier. */
-	conn = netconn_new(NETCONN_TCP);
-
-	if (conn!=NULL)
+	/*Create new socket*/
+	int sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sock == -1)
 	{
-		/* Bind connection to port UDP_PORT. */
-		err = netconn_bind(conn, IP_ADDR_ANY, MBTCP_SERVER_PORT);
+		MODBUS_TRACE("ModBus TCP server initialization failure\r\n");
+		vTaskDelete(NULL);
+	}
 
-		if (err == ERR_OK)
+	struct sockaddr_in addr;
+	/* set up address to connect to */
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(MBTCP_SERVER_PORT);
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	/* Bind connection */
+	if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1)
+	{
+		MODBUS_TRACE("Can't bind ModBus TCP server to port %d\r\n", MBTCP_SERVER_PORT);
+		vTaskDelete(NULL);
+	}
+
+	/* Tell connection to go into listening mode. */
+	if (listen(sock, 2) == -1)
+	{
+		MODBUS_TRACE("ModBus TCP server failure\r\n");
+	}
+
+	while (1)
+	{
+		/* Grab new connection. */
+		int r_sock = accept(sock, NULL, NULL);
+
+		if (r_sock == -1)
 		{
-			/* Tell connection to go into listening mode. */
-			netconn_listen(conn);
+			close(r_sock);
+			continue;
+		}
 
-			while (1)
+		while(1)
+		{
+			/*receive data*/
+			recv_len = recv(r_sock, mbtcp->rx_buf, mbtcp->rx_buf_size, 0);
+
+			if (recv_len < 0)
 			{
-				/* Grab new connection. */
-				err = netconn_accept(conn, &newconn);
+				break;
+			}
 
-				if ( err != ERR_OK )
-				{
-					continue;
-				}
+			/*Parse incoming packet*/
+			uint16_t outlen = MBTCP_PacketParser(mbtcp, recv_len);
 
-				/* Process the new connection. */
-				if (newconn)
-				{
-					struct netbuf *buf;
-					void *data;
-					u16_t len;
-
-					while ((err = netconn_recv(newconn, &buf)) == ERR_OK)
-					{
-						do
-						{
-							len = netbuf_len(buf);
-							data = MEMORY_MALLOC(len);
-
-							if (data != NULL)
-							{
-								netbuf_copy(buf, data, len);
-
-								//TO DO
-								uint8_t *outdata = NULL;
-								uint16_t outlen = MBTCP_PacketParser((uint8_t *) data, len, &outdata);
-								MEMORY_FREE(data);
-								if ((outdata != NULL) && (outlen > 0))
-								{
-									netconn_write(newconn, outdata, outlen, NETCONN_COPY);
-									MEMORY_FREE(outdata);
-								}
-							}
-							//netbuf_data(buf, &data, &len);
-							//netconn_write(newconn, data, len, NETCONN_COPY);
-						}
-						while (netbuf_next(buf) >= 0);
-
-						netbuf_delete(buf);
-					}
-
-					/* Close connection and discard connection identifier. */
-					netconn_close(newconn);
-					netconn_delete(newconn);
-				}
+			/*Send response*/
+			if (outlen > 0)
+			{
+				/*send response*/
+				send(r_sock, mbtcp->tx_buf, outlen, 0);
 			}
 		}
-		else
-		{
-			MODBUS_TRACE("Can't to bind MB TCP server to port %d\r\n", MBTCP_SERVER_PORT);
-			netconn_delete(conn);
-		}
-	}
-	else
-	{
-		MODBUS_TRACE("Can't to create MB TCP server\r\n");
+
+		close(r_sock);
 	}
 
+	close(sock);
 	vTaskDelete(NULL);
 }
 
-uint8_t* MBTCP_exception_pack(mbap_t *mbap_header, uint8_t fcode, MBerror err, uint32_t *outlen)
+/**
+ * @brief Exception message composer
+ * @param mbtcp Pointer to MBTCP handler
+ * @param mbap_header Pointer to MBAP
+ * @param fcode Function code
+ * @param err Error code
+ * @return Message length
+ */
+static uint16_t MBTCP_exception_pack(MBTCP_Handle_t *mbtcp, mbap_t *mbap_header,
+		uint8_t fcode, MBerror err)
 {
-	uint8_t *outdata= MEMORY_MALLOC(EXCEPT_SIZE);
+	uint8_t *outdata = mbtcp->tx_buf;
 
-	if (outdata != NULL)
+//	if (outdata != NULL)
 	{
 		mbap_header->plen = 3;
 
@@ -199,18 +206,27 @@ uint8_t* MBTCP_exception_pack(mbap_t *mbap_header, uint8_t fcode, MBerror err, u
 		U162ARR(mbap_header->unit_id, outdata + 6);
 		*(outdata + 7) = fcode;
 		*(outdata + 8) = err;
-
-		*outlen = EXCEPT_SIZE;
 	}
 
-	return outdata;
+	return EXCEPT_SIZE;
 }
 
-uint8_t* MBTCP_resp_pack(mbap_t *mbap_header, uint8_t fcode, uint32_t data_len, uint32_t *outlen)
+/**
+ * @brief Response message composer
+ * @param mbtcp Pointer to MBTCP handler
+ * @param mbap_header Pointer to MBAP
+ * @param fcode Function code
+ * @param data_len Response data length
+ * @return Response length
+ */
+static uint16_t MBTCP_resp_pack(MBTCP_Handle_t *mbtcp, mbap_t *mbap_header,
+		uint8_t fcode, uint32_t data_len)
 {
-	uint8_t *outdata = MEMORY_MALLOC(MBAP_SIZE + 1 + data_len);
+	MB_ASSERT(mbtcp->tx_buf_size >= MBAP_SIZE + 1 + data_len);
 
-	if (outdata != NULL)
+	uint8_t *outdata = mbtcp->tx_buf;
+
+//	if (outdata != NULL)
 	{
 		mbap_header->plen = data_len + 2;
 
@@ -219,18 +235,20 @@ uint8_t* MBTCP_resp_pack(mbap_t *mbap_header, uint8_t fcode, uint32_t data_len, 
 		U162ARR(mbap_header->plen, outdata + 4);
 		*(outdata + 6) = mbap_header->unit_id;
 		*(outdata + 7) = fcode;
-
-		*outlen = MBAP_SIZE + 1 + data_len;
 	}
 
-	return outdata;
+	return MBAP_SIZE + 1 + data_len;
 }
 
-uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata)
+static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
 {
 	uint32_t outlen = 0;
+	uint8_t *indata = mbtcp->rx_buf;
 
-	if (inlen < 8) return outlen;
+	if (inlen < 8)
+	{
+		return outlen;
+	}
 
 	/*---MBAP---*/
 	mbap_t mbap;
@@ -241,7 +259,7 @@ uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata)
 
 	if (mbap.prot_id != 0)
 	{
-		MBTCP_TRACE("Incorrect Protocol ID: %d\r\n", mbap.prot_id);
+		MODBUS_TRACE("Incorrect Protocol ID: %d\r\n", mbap.prot_id);
 	}
 
 	/*--PDU---*/
@@ -252,7 +270,7 @@ uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata)
 	uint16_t points_num; //for number of coils/regs
 	uint16_t val;
 	MBerror err;
-	uint8_t *resp_data = NULL;
+	uint8_t *resp_data = mbtcp->tx_buf;
 
 	/*check function*/
 	switch (fcode)
@@ -271,34 +289,32 @@ uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata)
 		if (err)
 		{
 			/*Prepare exception*/
-			resp_data = MBTCP_exception_pack(&mbap, fcode, err, &outlen);
+			outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, err);
 		}
 		else
 		{
 			uint16_t resp_bytes = (points_num + 7) / 8; /*response bytes number*/
-			resp_data = MBTCP_resp_pack(&mbap, fcode, resp_bytes + 1, &outlen);
+			outlen = MBTCP_resp_pack(mbtcp, &mbap, fcode, resp_bytes + 1);
 
-			if (resp_data) {
-				*(resp_data + 8) = (uint8_t) resp_bytes;
-				uint16_t coil2write = 0;
-				uint16_t i, j;
-				for (i = 0; i < resp_bytes; i++)
+			*(resp_data + 8) = (uint8_t) resp_bytes;
+			uint16_t coil2write = 0;
+			uint16_t i, j;
+			for (i = 0; i < resp_bytes; i++)
+			{
+				*(resp_data + 9 + i) = 0;
+
+				/*write bits*/
+				for (j = 0; j < 8; j++)
 				{
-					*(resp_data + 9 + i) = 0;
-
-					/*write bits*/
-					for (j = 0; j < 8; j++)
-					{
-						if (coil2write < points_num) {
-							*(resp_data + 9 + i) |= (coil_values[coil2write] & 0x01) << j;
-							coil2write++;
-						}
+					if (coil2write < points_num) {
+						*(resp_data + 9 + i) |= (coil_values[coil2write] & 0x01) << j;
+						coil2write++;
 					}
 				}
 			}
 		}
 #else
-		resp_data = MBTCP_exception_pack(&mbap, fcode, MODBUS_ERR_ILLEGFUNC, &outlen);
+		outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, MODBUS_ERR_ILLEGFUNC);
 #endif /*MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE*/
 		break;
 
@@ -316,23 +332,21 @@ uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata)
 		if (err)
 		{
 			/*Prepare exception*/
-			resp_data = MBTCP_exception_pack(&mbap, fcode, err, &outlen);
+			outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, err);
 		}
 		else
 		{
 			uint16_t resp_bytes = points_num * 2; /*response bytes number*/
-			resp_data = MBTCP_resp_pack(&mbap, fcode, resp_bytes + 1, &outlen);
+			outlen = MBTCP_resp_pack(mbtcp, &mbap, fcode, resp_bytes + 1);
 
-			if (resp_data) {
-				*(resp_data + 8) = (uint8_t) resp_bytes;
-				for (int i = 0; i < points_num; i++)
-				{
-					U162ARR(reg_values[i], resp_data + 9 + 2*i);
-				}
+			*(resp_data + 8) = (uint8_t) resp_bytes;
+			for (int i = 0; i < points_num; i++)
+			{
+				U162ARR(reg_values[i], resp_data + 9 + 2*i);
 			}
 		}
 #else
-		resp_data = MBTCP_exception_pack(&mbap, fcode, MODBUS_ERR_ILLEGFUNC, &outlen);
+		outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, MODBUS_ERR_ILLEGFUNC);
 #endif /*MODBUS_REGS_ENABLE*/
 		break;
 
@@ -349,7 +363,7 @@ uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata)
 				c_val = 1;
 			else
 			{
-				resp_data = MBTCP_exception_pack(&mbap, fcode, MODBUS_ERR_ILLEGVAL, &outlen);
+				outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, MODBUS_ERR_ILLEGVAL);
 				break;
 			}
 		}
@@ -359,19 +373,17 @@ uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata)
 		if (err)
 		{
 			/*Prepare exception*/
-			resp_data = MBTCP_exception_pack(&mbap, fcode, err, &outlen);
+			outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, err);
 		}
 		else
 		{
-			resp_data = MBTCP_resp_pack(&mbap, fcode, 4, &outlen);
-			if (resp_data)
-			{
-				U162ARR(start_addr, resp_data + 8);
-				U162ARR(val, resp_data + 10);
-			}
+			outlen = MBTCP_resp_pack(mbtcp, &mbap, fcode, 4);
+
+			U162ARR(start_addr, resp_data + 8);
+			U162ARR(val, resp_data + 10);
 		}
 #else
-		resp_data = MBTCP_exception_pack(&mbap, fcode, MODBUS_ERR_ILLEGFUNC, &outlen);
+		outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, MODBUS_ERR_ILLEGFUNC);
 #endif /*MODBUS_COILS_ENABLE*/
 		break;
 
@@ -387,19 +399,15 @@ uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata)
 			if (err)
 			{
 				/*Prepare exception*/
-				resp_data = MBTCP_exception_pack(&mbap, fcode, err, &outlen);
+				outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, err);
 			}
 			else
 			{
-				resp_data = MEMORY_MALLOC(inlen);
-				if (resp_data)
-				{
-					outlen = inlen;
-					memcpy(resp_data, indata, outlen);
-				}
+				outlen = inlen;
+				memcpy(resp_data, indata, outlen);
 			}
 #else
-		resp_data = MBTCP_exception_pack(&mbap, fcode, MODBUS_ERR_ILLEGFUNC, &outlen);
+			outlen = MBTCP_exception_pack(&mbap, fcode, MODBUS_ERR_ILLEGFUNC);
 #endif /*MODBUS_REGS_ENABLE*/
 		break;
 
@@ -423,26 +431,21 @@ uint32_t MBTCP_PacketParser(uint8_t *indata, uint32_t inlen, uint8_t **outdata)
 			if (err)
 			{
 				/*Prepare exception*/
-				resp_data = MBTCP_exception_pack(&mbap, fcode, err, &outlen);
+				outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, err);
 			}
 			else
 			{
-				resp_data = MEMORY_MALLOC(inlen);
-				if (resp_data)
-				{
-					outlen = inlen;
-					memcpy(resp_data, indata, outlen);
-				}
+				outlen = inlen;
+				memcpy(resp_data, indata, outlen);
 			}
 #else
-			resp_data = MBTCP_exception_pack(&mbap, fcode, MODBUS_ERR_ILLEGFUNC, &outlen);
+			outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, MODBUS_ERR_ILLEGFUNC);
 #endif /*MODBUS_WRMREGS_ENABLE*/
 			break;
 
 	default:
-		resp_data = MBTCP_exception_pack(&mbap, fcode, MODBUS_ERR_ILLEGFUNC, &outlen);
+		outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, MODBUS_ERR_ILLEGFUNC);
 	}
 
-	*outdata = resp_data;
 	return outlen;
 }
