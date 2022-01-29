@@ -14,6 +14,8 @@ static uint16_t MBRegs[REG_NUM] = {
 ${def_vals}
 };
 
+static uint16_t regs_inited = 0;
+
 uint32_t MBRegCheckOp(uint16_t addr, RegOpMode op);
 uint32_t MBRegCheckVal(uint16_t addr, uint16_t val);
 
@@ -26,9 +28,12 @@ MBerror MBRegInit(void *arg)
 {
 	(void) arg;
 	
-	/* USER CODE BEGIN */
+	if (!regs_inited)
+	{
+		/* USER CODE BEGIN */
 
-	/* USER CODE END */
+		/* USER CODE END */
+	}
 
 	return MODBUS_ERR_OK;
 }
