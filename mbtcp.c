@@ -5,7 +5,7 @@
  *      Author: Valeriy Chudnikov
  */
 
-#include "mbtcp_server.h"
+#include "mbtcp.h"
 #include "mb_regs.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -50,7 +50,7 @@ static TaskHandle_t hMBTCP_Task = NULL;
 #if MODBUS_REGS_ENABLE
 extern MBerror RegInit(void *arg);
 extern MBerror RegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
-extern MBerror RegWriteCallback(uint16_t addr, uint16_t val);
+extern MBerror RegsWriteCallback(uint16_t addr, uint16_t val);
 #endif
 
 static void MBTCP_Thread(void *arg);
@@ -196,17 +196,14 @@ static uint16_t MBTCP_exception_pack(MBTCP_Handle_t *mbtcp, mbap_t *mbap_header,
 {
 	uint8_t *outdata = mbtcp->tx_buf;
 
-//	if (outdata != NULL)
-	{
-		mbap_header->plen = 3;
+	mbap_header->plen = 3;
 
-		U162ARR(mbap_header->tran_id, outdata);
-		U162ARR(mbap_header->prot_id, outdata + 2);
-		U162ARR(mbap_header->plen, outdata + 4);
-		U162ARR(mbap_header->unit_id, outdata + 6);
-		*(outdata + 7) = fcode;
-		*(outdata + 8) = err;
-	}
+	U162ARR(mbap_header->tran_id, outdata);
+	U162ARR(mbap_header->prot_id, outdata + 2);
+	U162ARR(mbap_header->plen, outdata + 4);
+	U162ARR(mbap_header->unit_id, outdata + 6);
+	*(outdata + 7) = fcode;
+	*(outdata + 8) = err;
 
 	return EXCEPT_SIZE;
 }
@@ -226,36 +223,44 @@ static uint16_t MBTCP_resp_pack(MBTCP_Handle_t *mbtcp, mbap_t *mbap_header,
 
 	uint8_t *outdata = mbtcp->tx_buf;
 
-//	if (outdata != NULL)
-	{
-		mbap_header->plen = data_len + 2;
+	mbap_header->plen = data_len + 2;
 
-		U162ARR(mbap_header->tran_id, outdata);
-		U162ARR(mbap_header->prot_id, outdata + 2);
-		U162ARR(mbap_header->plen, outdata + 4);
-		*(outdata + 6) = mbap_header->unit_id;
-		*(outdata + 7) = fcode;
-	}
+	U162ARR(mbap_header->tran_id, outdata);
+	U162ARR(mbap_header->prot_id, outdata + 2);
+	U162ARR(mbap_header->plen, outdata + 4);
+	*(outdata + 6) = mbap_header->unit_id;
+	*(outdata + 7) = fcode;
 
 	return MBAP_SIZE + 1 + data_len;
 }
 
+/**
+ * @brief Incoming packet parser
+ * @param mbtcp
+ * @param inlen
+ * @return
+ */
 static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
 {
 	uint32_t outlen = 0;
 	uint8_t *indata = mbtcp->rx_buf;
+	MBerror err;
+	uint16_t val;
+	uint8_t *resp_data = mbtcp->tx_buf;
+	uint16_t *reg_values;
 
-	if (inlen < 8)
+	/*MBAP + function code + start addr + points num*/
+	if (inlen < MBAP_SIZE + 1 + 4)
 	{
 		return outlen;
 	}
 
 	/*---MBAP---*/
 	mbap_t mbap;
-	mbap.tran_id = ARR2U16(indata); //transaction ID
-	mbap.prot_id = ARR2U16(indata + 2); //protocol ID
-	mbap.plen = ARR2U16(indata + 4); //length
-	mbap.unit_id = *(indata + 6); //Unit ID
+	mbap.tran_id = ARR2U16(indata); /*transaction ID*/
+	mbap.prot_id = ARR2U16(indata + 2); /*protocol ID*/
+	mbap.plen = ARR2U16(indata + 4); /*length*/
+	mbap.unit_id = *(indata + 6); /*Unit ID*/
 
 	if (mbap.prot_id != 0)
 	{
@@ -263,14 +268,10 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
 	}
 
 	/*--PDU---*/
-	uint8_t fcode = *(indata + 7); //Function code
-	uint8_t *pdata = indata + 8; //data from here
-
-	uint16_t start_addr; //for address
-	uint16_t points_num; //for number of coils/regs
-	uint16_t val;
-	MBerror err;
-	uint8_t *resp_data = mbtcp->tx_buf;
+	uint8_t fcode = *(indata + 7); /*Function code*/
+	uint8_t *pdata = indata + 8; /*PDU data*/
+	uint16_t start_addr = ARR2U16(pdata); /*start address*/
+	uint16_t points_num = ARR2U16(pdata + 2); /*number of coils/regs*/
 
 	/*check function*/
 	switch (fcode)
@@ -280,11 +281,18 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
 	/*Function 02: read input status*/
 	case MODBUS_FUNC_RDDINP:
 #if MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE
-		start_addr = ARR2U16(pdata);
-		points_num = ARR2U16(pdata + 2); //chek for maximum 127!!
-
 		uint8_t *coil_values;
-		err = MBCoilInpReadCallback(start_addr, points_num, &coil_values);
+
+		if (points_num >= 1 || points_num <= 2000)
+		{
+			/*coils/dinputs read callback*/
+			err = MBCoilInpReadCallback(start_addr, points_num, &coil_values);
+		}
+		else
+		{
+			err = MODBUS_ERR_ILLEGVAL;
+		}
+
 
 		if (err)
 		{
@@ -323,12 +331,16 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
 	/*Function 04: read input registers*/
 	case MODBUS_FUNC_RDINREGS:
 #if MODBUS_REGS_ENABLE
-		start_addr = ARR2U16(pdata);
-		points_num = ARR2U16(pdata + 2); //chek for maximum 127!!
+		if (points_num >= 1 || points_num <= 125)
+		{
+			/*reg read callback*/
+			err = MBRegReadCallback(start_addr, points_num, &reg_values);
+		}
+		else
+		{
+			err = MODBUS_ERR_ILLEGVAL;
+		}
 
-		uint16_t *reg_values;
-		/*reg read callback*/
-		err = MBRegReadCallback(start_addr, points_num, &reg_values);
 		if (err)
 		{
 			/*Prepare exception*/
@@ -353,13 +365,12 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
 	/*Function 05: force single coil*/
 	case MODBUS_FUNC_WRSCOIL:
 #if MODBUS_COILS_ENABLE
-		start_addr = ARR2U16(pdata);
 		val = ARR2U16(pdata + 2);
 		uint8_t c_val = 0;
 
 		if (val)
 		{
-			if (val == 0xFF00) /*coil ON*/
+			if (val == 0xFF00) /*coil is ON*/
 				c_val = 1;
 			else
 			{
@@ -390,42 +401,38 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
 	/*Function 06: Preset Single Register*/
 	case MODBUS_FUNC_WRSREG:
 #if MODBUS_REGS_ENABLE
-		start_addr = ARR2U16(pdata);
 		val = ARR2U16(pdata + 2);
 
-			/*reg write callback*/
-			err = MBRegWriteCallback(start_addr, val);
+		/*regs write callback*/
+		err = MBRegsWriteCallback(start_addr, 1, (uint8_t *) &val);
 
-			if (err)
-			{
-				/*Prepare exception*/
-				outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, err);
-			}
-			else
-			{
-				outlen = inlen;
-				memcpy(resp_data, indata, outlen);
-			}
+		if (err)
+		{
+			/*Prepare exception*/
+			outlen = MBTCP_exception_pack(mbtcp, &mbap, fcode, err);
+		}
+		else
+		{
+			outlen = inlen;
+			memcpy(resp_data, indata, outlen);
+		}
 #else
-			outlen = MBTCP_exception_pack(&mbap, fcode, MODBUS_ERR_ILLEGFUNC);
+		outlen = MBTCP_exception_pack(&mbap, fcode, MODBUS_ERR_ILLEGFUNC);
 #endif /*MODBUS_REGS_ENABLE*/
 		break;
 
 		/*Function 16: Write multiple registers*/
 		case MODBUS_FUNC_WRMREGS:
 #if MODBUS_WRMREGS_ENABLE
-			start_addr = ARR2U16(pdata);
-			points_num = ARR2U16(pdata + 2);
-
-			uint8_t byte_cnt = pdata[4];
-
-			if ((points_num < 1 && points_num > 123) || (byte_cnt <= 123*2))
+			/*check for points number and byte count*/
+			if ((points_num >= 1 && points_num <= 123) && (pdata[4] == 2*points_num))
 			{
-				err = MODBUS_ERR_ILLEGVAL;
+				/*regs write callback*/
+				err = MBRegsWriteCallback(start_addr, points_num, &pdata[5]);
 			}
 			else
 			{
-				err = MBRegsWriteCallback(start_addr, points_num, &pdata[5]);
+				err = MODBUS_ERR_ILLEGVAL;
 			}
 
 			if (err)

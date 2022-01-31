@@ -5,7 +5,7 @@
  *      Author: Valeriy Chudnikov
  */
 
-#include "simple_modbus.h"
+#include "mbrtu.h"
 #include "string.h"
 #include "mb_crc.h"
 
@@ -23,9 +23,9 @@
 #define DE_HIGH()				mb->set_de(DEHIGH)
 #define DE_LOW()				mb->set_de(DELOW)
 
-static void SmplModbus_Parser(smpl_modbus_t *mb);
-static void SmplModbus_SendException(smpl_modbus_t *mb, MBerror excpt);
-static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len);
+static void MBRTU_Parser(smpl_modbus_t *mb);
+static void MBRTU_SendException(smpl_modbus_t *mb, MBerror excpt);
+static void MBRTU_LolevelSend(smpl_modbus_t *mb, uint32_t len);
 #if MODBUS_REGS_ENABLE
 extern MBerror MBRegInit(void *arg);
 extern MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
@@ -37,7 +37,7 @@ extern MBerror MBCoilsInputsWriteCallback(uint16_t addr, uint16_t num, uint8_t *
 extern MBerror MBCoilWriteCallback(uint16_t addr, uint8_t val);
 #endif
 
-MBerror SmplModbus_Init(smpl_modbus_t *mb)
+MBerror MBRTU_Init(smpl_modbus_t *mb)
 {
 	MB_ASSERT(mb != NULL);
 	MB_ASSERT(mb->addr > 0);
@@ -72,7 +72,7 @@ MBerror SmplModbus_Init(smpl_modbus_t *mb)
  * @brief Modbus polling function. Checks incoming message.
  * @param mb
  */
-void SmplModbus_Poll(smpl_modbus_t *mb)
+void MBRTU_Poll(smpl_modbus_t *mb)
 {
 	MB_ASSERT(mb != NULL);
 
@@ -87,7 +87,7 @@ void SmplModbus_Poll(smpl_modbus_t *mb)
 			if ((mb->rx_byte -  mb->rx_buf) > MODBUS_MSG_MIN_LEN)
 			{
 				/*Parse incoming message*/
-				SmplModbus_Parser(mb);
+				MBRTU_Parser(mb);
 			}
 
 			mb->rx_byte = mb->rx_buf;
@@ -97,7 +97,7 @@ void SmplModbus_Poll(smpl_modbus_t *mb)
 	}
 }
 
-static void SmplModbus_Parser(smpl_modbus_t *mb)
+static void MBRTU_Parser(smpl_modbus_t *mb)
 {
 	/* Packet structure
 	 * 8bit - Address
@@ -127,18 +127,29 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 		/*check function*/
 		switch (func)
 		{
-		case MODBUS_FUNC_RDCOIL:	/*Read coils*/
-		case MODBUS_FUNC_RDDINP:	/*Read discrete inputs*/
+		/*Function 01: read coil status*/
+		case MODBUS_FUNC_RDCOIL:
+		/*Function 02: read input status*/
+		case MODBUS_FUNC_RDDINP:
 #if MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 6))
 			{
-				/*coils/dinputs read callback*/
 				uint8_t *coil_values;
-				err = MBCoilInpReadCallback(start_addr, points_num, &coil_values);
+
+				if (points_num >= 1 || points_num <= 2000)
+				{
+					/*coils/dinputs read callback*/
+					err = MBCoilInpReadCallback(start_addr, points_num, &coil_values);
+				}
+				else
+				{
+					err = MODBUS_ERR_ILLEGVAL;
+				}
+
 				if (err)
 				{
 					/*send exception*/
-					SmplModbus_SendException(mb, err);
+					MBRTU_SendException(mb, err);
 					break;
 				}
 				else
@@ -154,25 +165,36 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 					U162ARR(tmp_crc, &mb->tx_buf[3 + mb->tx_buf[2]]);
 				}
 
-				SmplModbus_LolevelSend(mb, 3 + mb->tx_buf[2] + 2);
+				MBRTU_LolevelSend(mb, 3 + mb->tx_buf[2] + 2);
 			}
 #else
-			SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);
+			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
 #endif /*MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE*/
 			break;
 
-		case MODBUS_FUNC_RDHLDREGS: /*read holding registers*/
-		case MODBUS_FUNC_RDINREGS: /*read input registers*/
+		/*Function 03: read holding registers*/
+		case MODBUS_FUNC_RDHLDREGS:
+		/*Function 04: read input registers*/
+		case MODBUS_FUNC_RDINREGS:
 #if MODBUS_REGS_ENABLE
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 6))
 			{
-				/*reg read callback*/
 				uint16_t *reg_values;
-				err = MBRegReadCallback(start_addr, points_num, &reg_values);
+
+				if (points_num >= 1 || points_num <= 125)
+				{
+					/*reg read callback*/
+					err = MBRegReadCallback(start_addr, points_num, &reg_values);
+				}
+				else
+				{
+					err = MODBUS_ERR_ILLEGVAL;
+				}
+
 				if (err)
 				{
 					/*send exception*/
-					SmplModbus_SendException(mb, err);
+					MBRTU_SendException(mb, err);
 					break;
 				}
 				else
@@ -188,14 +210,15 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 					U162ARR(tmp_crc, &mb->tx_buf[3 + mb->tx_buf[2]]);
 				}
 
-				SmplModbus_LolevelSend(mb, 3 + mb->tx_buf[2] + 2);
+				MBRTU_LolevelSend(mb, 3 + mb->tx_buf[2] + 2);
 			}
 #else
-			SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);
+			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
 #endif /*MODBUS_REGS_ENABLE*/
 			break;
 
-		case MODBUS_FUNC_WRSCOIL: /*write single coil*/
+			/*Function 05: force single coil*/
+		case MODBUS_FUNC_WRSCOIL:
 #if MODBUS_COILS_ENABLE
 			val = points_num;
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 6))
@@ -203,12 +226,12 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 				uint8_t c_val = 0;
 				if (val)
 				{
-					if (val == 0xFF00) //coil ON
+					if (val == 0xFF00) //coil is ON
 						c_val = 1;
 					else
 					{
 						/*send exception*/
-						SmplModbus_SendException(mb, MODBUS_ERR_ILLEGVAL);
+						MBRTU_SendException(mb, MODBUS_ERR_ILLEGVAL);
 						break;
 					}
 				}
@@ -218,7 +241,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 				if (err)
 				{
 					/*send exception*/
-					SmplModbus_SendException(mb, err);
+					MBRTU_SendException(mb, err);
 					break;
 				}
 				else
@@ -226,14 +249,15 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 					memcpy(mb->tx_buf, mb->rx_buf, 8); //response
 				}
 
-				SmplModbus_LolevelSend(mb, 8);
+				MBRTU_LolevelSend(mb, 8);
 			}
 #else
-			SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);
+			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
 #endif /*MODBUS_COILS_ENABLE*/
 			break;
 
-		case MODBUS_FUNC_WRSREG: /*write single register*/
+		/*Function 06: Preset Single Register*/
+		case MODBUS_FUNC_WRSREG:
 #if MODBUS_REGS_ENABLE
 			val = points_num;
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 6))
@@ -243,7 +267,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 				if (err)
 				{
 					/*send exception*/
-					SmplModbus_SendException(mb, err);
+					MBRTU_SendException(mb, err);
 					break;
 				}
 				else
@@ -251,10 +275,10 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 					memcpy(mb->tx_buf, mb->rx_buf, 8);
 				}
 
-				SmplModbus_LolevelSend(mb, 8);
+				MBRTU_LolevelSend(mb, 8);
 			}
 #else
-			SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);
+			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
 #endif /*MODBUS_REGS_ENABLE*/
 			break;
 
@@ -268,7 +292,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 				if (err)
 				{
 					/*send exception*/
-					SmplModbus_SendException(mb, err);
+					MBRTU_SendException(mb, err);
 					break;
 				}
 				else
@@ -281,14 +305,15 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 					U162ARR(tmp_crc, &mb->tx_buf[6]);
 				}
 
-				SmplModbus_LolevelSend(mb, 8);
+				MBRTU_LolevelSend(mb, 8);
 			}
 #else
-			SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);
+			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
 #endif
 			break;
 
-		case MODBUS_FUNC_WRMREGS: /*Write multiple registers*/
+		/*Function 16: Write multiple registers*/
+		case MODBUS_FUNC_WRMREGS:
 #if MODBUS_WRMREGS_ENABLE
 			byte_cnt = mb->rx_buf[6];
 			if (byte_cnt <= 123*2)
@@ -309,7 +334,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 					if (err)
 					{
 						/*send exception*/
-						SmplModbus_SendException(mb, err);
+						MBRTU_SendException(mb, err);
 						break;
 					}
 					else
@@ -321,16 +346,16 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
 						U162ARR(tmp_crc, &mb->tx_buf[6]);
 					}
 
-					SmplModbus_LolevelSend(mb, 8);
+					MBRTU_LolevelSend(mb, 8);
 				}
 			}
 #else
-			SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);
+			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
 #endif
 			break;
 
 			default:
-				/*SmplModbus_SendException(mb, MODBUS_ERR_ILLEGFUNC);*/
+				MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
 				break;
 		}
 	}
@@ -342,7 +367,7 @@ static void SmplModbus_Parser(smpl_modbus_t *mb)
  * @param func
  * @param excpt
  */
-static void SmplModbus_SendException(smpl_modbus_t *mb, MBerror excpt)
+static void MBRTU_SendException(smpl_modbus_t *mb, MBerror excpt)
 {
 	mb->tx_buf[0] = mb->rx_buf[0]; //address
 	mb->tx_buf[1] = mb->rx_buf[1] | 0x80; //function + exception
@@ -350,10 +375,10 @@ static void SmplModbus_SendException(smpl_modbus_t *mb, MBerror excpt)
 	uint16_t tmp_crc = ModRTU_CRC(mb->tx_buf, 3);
 	U162ARR(tmp_crc, &mb->tx_buf[3]);
 
-	SmplModbus_LolevelSend(mb, 5);
+	MBRTU_LolevelSend(mb, 5);
 }
 
-static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len)
+static void MBRTU_LolevelSend(smpl_modbus_t *mb, uint32_t len)
 {
 	DE_HIGH();
 #if MODBUS_USE_US_TIMER
@@ -373,7 +398,7 @@ static void SmplModbus_LolevelSend(smpl_modbus_t *mb, uint32_t len)
 	mb->last_tx_time = MODBUS_GET_TICK;
 }
 
-void SmplModbus_ByteReceivedCallback(smpl_modbus_t *mb)
+void MBRTU_ByteReceivedCallback(smpl_modbus_t *mb)
 {
 	MB_ASSERT(mb != NULL);
 
@@ -395,7 +420,7 @@ void SmplModbus_ByteReceivedCallback(smpl_modbus_t *mb)
 
 
 #if MODBUS_NONBLOCKING_TX
-void SmplModbus_tx_cmplt(smpl_modbus_t *mb)
+void MBRTU_tx_cmplt(smpl_modbus_t *mb)
 {
 	mb->last_tx_time = MODBUS_GET_TICK;
 	mb->mbmode = RX;
@@ -404,7 +429,7 @@ void SmplModbus_tx_cmplt(smpl_modbus_t *mb)
 }
 #endif
 
-void SmplModbus_error(smpl_modbus_t *mb)
+void MBRTU_error(smpl_modbus_t *mb)
 {
 	MB_ASSERT(mb != NULL);
 

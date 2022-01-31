@@ -81,51 +81,7 @@ MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval)
 }
 
 /**
- * @brief Function 06 - Preset Single Register Callback
- * @param addr Register address
- * @param val Value
- * @return Error code
- */
-MBerror MBRegWriteCallback(uint16_t addr, uint16_t val)
-{
-	MBerror err = MODBUS_ERR_OK;
-	
-	MBRegLock();
-
-	MODBUS_TRACE("Func. 06 (Preset single reg.). Addr: %d, Val: %d\r\n", addr, val);
-
-	if (addr < REG_NUM)
-	{
-		/*Check permission & value*/
-		if (MBRegCheckOp(addr, REG_WRITE))
-		{
-			if (MBRegCheckVal(addr, val))
-			{
-				MBRegs[addr] = val;
-				MBRegUpdated(addr, val);
-			}
-			else
-			{
-				err = MODBUS_ERR_ILLEGVAL;
-			}
-		}
-		else
-		{
-			err = MODBUS_ERR_ILLEGADDR;
-		}
-	}
-	else
-	{
-		err = MODBUS_ERR_ILLEGADDR;
-	}
-	
-	MBRegUnlock();
-
-	return err;
-}
-
-/**
- * @brief Function 16 - Preset Multiple Registers Callback
+ * @brief Function 06/16 - Preset Single/Multiple Registers Callback
  * @param addr Registers start address
  * @param num Registers number
  * @param pval Pointer to array containing registers values

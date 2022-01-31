@@ -28,7 +28,6 @@ ${register_map}
 
 MBerror MBRegInit(void *arg);
 MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval);
-MBerror MBRegWriteCallback(uint16_t addr, uint16_t val);
 MBerror MBRegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval);
 void MBRegSetValue(uint16_t addr, uint16_t val, MBerror *err);
 uint16_t MBRegGetValue(uint16_t addr, MBerror *err);

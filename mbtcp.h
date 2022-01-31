@@ -11,7 +11,7 @@
 #include "simple_modbus_conf.h"
 
 #ifndef MBTCP_MAX_PACKET_SIZE
-#define MBTCP_MAX_PACKET_SIZE	253
+#define MBTCP_MAX_PACKET_SIZE	260 /*Maximum ADU size*/
 #endif
 
 typedef struct {

@@ -19,7 +19,11 @@
 #define MODBUS_ERR_PARAM		10
 #define MODBUS_ERR_INTFS		11
 
-#define MODBUS_MAX_MSG_LEN		256
+#ifndef MBTCP_MAX_PACKET_SIZE
+#define MBTCP_MAX_PACKET_SIZE	253 /*Maximum ADU size*/
+#endif
+
+#define MODBUS_MAX_MSG_LEN		MBTCP_MAX_PACKET_SIZE
 
 enum intfs_mode { RX = 0, TX };
 typedef enum {DELOW = 0, DEHIGH} de_state_t;
@@ -42,12 +46,12 @@ typedef struct {
 #endif
 } smpl_modbus_t;
 
-MBerror SmplModbus_Init(smpl_modbus_t *mb);
-void SmplModbus_Poll(smpl_modbus_t *mb);
-void SmplModbus_ByteReceivedCallback(smpl_modbus_t *mb);
+MBerror MBRTU_Init(smpl_modbus_t *mb);
+void MBRTU_Poll(smpl_modbus_t *mb);
+void MBRTU_ByteReceivedCallback(smpl_modbus_t *mb);
 #if MODBUS_NONBLOCKING_TX
-void SmplModbus_tx_cmplt(smpl_modbus_t *mb); /*Tx has been completed*/
+void MBRTU_tx_cmplt(smpl_modbus_t *mb); /*Tx has been completed*/
 #endif
-void SmplModbus_error(smpl_modbus_t *mb); /*Interface error*/
+void MBRTU_error(smpl_modbus_t *mb); /*Interface error*/
 
 #endif /* SIMPLE_MODBUS_H_ */
