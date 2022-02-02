@@ -245,7 +245,6 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
 	uint32_t outlen = 0;
 	uint8_t *indata = mbtcp->rx_buf;
 	MBerror err;
-	uint16_t val;
 	uint8_t *resp_data = mbtcp->tx_buf;
 	uint16_t *reg_values;
 
@@ -401,10 +400,8 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
 	/*Function 06: Preset Single Register*/
 	case MODBUS_FUNC_WRSREG:
 #if MODBUS_REGS_ENABLE
-		val = ARR2U16(pdata + 2);
-
 		/*regs write callback*/
-		err = MBRegsWriteCallback(start_addr, 1, (uint8_t *) &val);
+		err = MBRegsWriteCallback(start_addr, 1, (uint8_t *) (pdata + 2));
 
 		if (err)
 		{
