@@ -22,6 +22,14 @@ def str_tield2int(field):
         val = 0
     return val
 
+#Adds separation between str1 and str2 to aling str2 to pos
+def tab2pos(str1, str2, pos):
+    out_str = str1;
+    for i in range(pos - len(str1)):
+        out_str += ' ';
+    out_str += str2;
+    return out_str;
+
 def main(argv=None): # IGNORE:C0111
     '''Command line options.'''
 
@@ -49,6 +57,7 @@ def main(argv=None): # IGNORE:C0111
     with open(file, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         last_reg_addr = 0
+        max_name_len = 0
         reg_map = []
         
         print("Check input file")
@@ -93,6 +102,10 @@ def main(argv=None): # IGNORE:C0111
                 
                 if addr > last_reg_addr:
                     last_reg_addr = addr
+                    
+                if len(row['Name']) > max_name_len:
+                    max_name_len = len(row['Name'])
+
         except csv.Error as e:
             sys.exit('file {}, line {}: {}'.format(filename, reader.line_num, e))
             
@@ -112,9 +125,14 @@ def main(argv=None): # IGNORE:C0111
     rmh_f = open('mb_regs.h', 'w', newline='')
     
     reg_map_defs = ""
+    #get closest tab position index
+    tab_pos_ind = 4*((max_name_len+ 17 + 3)//4) + 4;
     
     for row in reg_map:
-        if row['Name'].upper() == 'RESERVED':
+        reg_name = row['Name'].upper()
+        reg_name = reg_name.replace(' ','_')
+        
+        if reg_name == 'RESERVED':
             continue
         
         addr = row['Address']
@@ -130,12 +148,12 @@ def main(argv=None): # IGNORE:C0111
         elif oper == 'RW' or oper == 'R/W':
             oper_mode = '(REG_READ | REG_WRITE)'
             
-        reg_map_defs += "/* Register: %s\r\n* Addr: %s; Min: %d; Max: %d; Default: %d; Oper: %s\r\n*/\r\n"%(row['Comment'], hex(addr), min, max, default, oper)
-        reg_map_defs += "#define REG_%s_ADDR\t%s\r\n"%(row['Name'].upper(), hex(addr))
-        reg_map_defs += "#define REG_%s_MIN\t%d\r\n"%(row['Name'].upper(), min)
-        reg_map_defs += "#define REG_%s_MAX\t%d\r\n"%(row['Name'].upper(), max)
-        reg_map_defs += "#define REG_%s_DEF\t%d\r\n"%(row['Name'].upper(), default)
-        reg_map_defs += "#define REG_%s_OPER\t%s\r\n"%(row['Name'].upper(), oper_mode)
+        reg_map_defs += "/* Register: %s\r\n* Addr: %s; Min: %d; Max: %d; Default: %d; Oper: %s */\r\n"%(row['Comment'], hex(addr), min, max, default, oper)
+        reg_map_defs += tab2pos("#define REG_%s_ADDR"%(reg_name), "%s\r\n"%(hex(addr)), tab_pos_ind)
+        reg_map_defs += tab2pos("#define REG_%s_MIN"%(reg_name), "%s\r\n"%(min), tab_pos_ind)
+        reg_map_defs += tab2pos("#define REG_%s_MAX"%(reg_name), "%s\r\n"%(max), tab_pos_ind)
+        reg_map_defs += tab2pos("#define REG_%s_DEF"%(reg_name), "%s\r\n"%(default), tab_pos_ind)
+        reg_map_defs += tab2pos("#define REG_%s_OPER"%(reg_name), "%s\r\n"%(oper_mode), tab_pos_ind)
         reg_map_defs += "\r\n"
     
     #fill template and write to file        
@@ -158,15 +176,15 @@ def main(argv=None): # IGNORE:C0111
     #fill geristers array
     reg_def_vals = ""
     for row in reg_map:
-        if row['Name'].upper() == 'RESERVED':
+        reg_name = row['Name'].upper()
+        reg_name = reg_name.replace(' ','_')
+        
+        if reg_name == 'RESERVED':
             reg_def_vals += "\t0"
         else:
-            reg_def_vals += "\tREG_%s_DEF"%(row['Name'].upper())
+            reg_def_vals += "\tREG_%s_DEF"%(reg_name)
         if row != reg_map[-1]:
-            reg_def_vals += ","
-            reg_def_vals += "\t/*%s*/\r\n"%(row['Name'].upper())
-        else:
-            reg_def_vals += "\t/*%s*/"%(row['Name'].upper())
+            reg_def_vals += ",\r\n"
      
     #checker functions
     reg_op_check = ""
