@@ -142,18 +142,18 @@ def main(argv=None): # IGNORE:C0111
         oper = row['Mode']
         
         if oper == 'R':
-            oper_mode = 'REG_READ'
+            oper_mode = 'REG_OPT_R_ONLY'
         elif oper == 'W':
-            oper_mode = 'REG_WRITE'
+            oper_mode = 'REG_OPT_WR_ONLY'
         elif oper == 'RW' or oper == 'R/W':
-            oper_mode = '(REG_READ | REG_WRITE)'
+            oper_mode = 'REG_OPT_ALL'
             
         reg_map_defs += "/* Register: %s\r\n* Addr: %s; Min: %d; Max: %d; Default: %d; Oper: %s */\r\n"%(row['Comment'], hex(addr), min, max, default, oper)
         reg_map_defs += tab2pos("#define REG_%s_ADDR"%(reg_name), "%s\r\n"%(hex(addr)), tab_pos_ind)
         reg_map_defs += tab2pos("#define REG_%s_MIN"%(reg_name), "%s\r\n"%(min), tab_pos_ind)
         reg_map_defs += tab2pos("#define REG_%s_MAX"%(reg_name), "%s\r\n"%(max), tab_pos_ind)
         reg_map_defs += tab2pos("#define REG_%s_DEF"%(reg_name), "%s\r\n"%(default), tab_pos_ind)
-        reg_map_defs += tab2pos("#define REG_%s_OPER"%(reg_name), "%s\r\n"%(oper_mode), tab_pos_ind)
+        reg_map_defs += tab2pos("#define REG_%s_OPT"%(reg_name), "%s\r\n"%(oper_mode), tab_pos_ind)
         reg_map_defs += "\r\n"
     
     #fill template and write to file        
@@ -173,7 +173,29 @@ def main(argv=None): # IGNORE:C0111
     mbr_f = open('mb_regs.c', 'w', newline='')
 
     #static variables
-    #fill geristers array
+    
+    #fill geristers options array
+    reg_opts_vals = ""
+    for row in reg_map:
+        reg_name = row['Name'].upper()
+        reg_name = reg_name.replace(' ','_')
+        
+        reg_opt_str = ''
+        
+        if reg_name == 'RESERVED':
+            reg_opt_str += "\t{REG_OPT_R_ONLY, 0, 0, 0}"
+        else:
+            reg_opt_str += \
+            "\t{REG_%s_OPT, REG_%s_MIN, REG_%s_MAX, REG_%s_DEF}"%(reg_name, \
+                                                                  reg_name, \
+                                                                  reg_name, \
+                                                                  reg_name)
+        if row != reg_map[-1]:
+            reg_opt_str += ",\r\n"
+        
+        reg_opts_vals += reg_opt_str
+    
+    #fill geristers values array
     reg_def_vals = ""
     for row in reg_map:
         reg_name = row['Name'].upper()
@@ -186,26 +208,10 @@ def main(argv=None): # IGNORE:C0111
         if row != reg_map[-1]:
             reg_def_vals += ",\r\n"
      
-    #checker functions
-    reg_op_check = ""
-    for row in reg_map:
-        if row['Name'].upper() == 'RESERVED':
-            continue
-        
-        reg_op_check += "\tif ((addr == REG_%s_ADDR) && !(op & REG_%s_OPER)) return 0;\r\n"%(row['Name'].upper(),row['Name'].upper())
-    
-    reg_val_check = ""
-    for row in reg_map:
-        if row['Name'].upper() == 'RESERVED':
-            continue
-        
-        reg_val_check += "\tif ((addr == REG_%s_ADDR) && ((val < REG_%s_MIN) || (val > REG_%s_MAX))) return 0;\r\n"%(row['Name'].upper(),row['Name'].upper(),row['Name'].upper())
-    
     #fill template and write to file        
     mbr_content = mbr_template.safe_substitute(date=datetime.date.today(), \
-                                               def_vals = reg_def_vals, \
-                                               op_check = reg_op_check, \
-                                               val_check = reg_val_check)
+                                               opt_vals = reg_opts_vals, \
+                                               def_vals = reg_def_vals)
     mbr_f.write(mbr_content)
     
     print("File mb_regs.c is created")

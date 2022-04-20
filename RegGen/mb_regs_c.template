@@ -5,19 +5,37 @@
 
 #include "mb_regs.h"
 
-typedef enum {REG_READ = 1, REG_WRITE} RegOpMode;
+#define REG_READ		0x01
+#define REG_WRITE		0x02
+
+#define REG_PERM_U		0x01
+#define REG_PERM_SU		0x04
+
+typedef struct {
+	uint8_t opt;
+	uint16_t min;
+	uint16_t max;
+	uint16_t def;
+} RegOpt_t;
+
+/**
+ * @brief Registers options and min/max/def values
+ */
+static const RegOpt_t MBRegOpt[REG_NUM] = {
+${opt_vals}
+};
 
 /**
  * @brief Registers array initialization with default values
  */
-static uint16_t MBRegs[REG_NUM] = {
+static uint16_t MBRegVal[REG_NUM] = {
 ${def_vals}
 };
 
 static uint16_t regs_inited = 0;
 
-uint32_t MBRegCheckOp(uint16_t addr, RegOpMode op);
-uint32_t MBRegCheckVal(uint16_t addr, uint16_t val);
+static uint32_t MBRegCheckOp(uint16_t addr, uint8_t op);
+static uint32_t MBRegCheckVal(uint16_t addr, uint16_t val);
 
 /**
  * @brief Registers initialization. Called on ModBus initialization
@@ -72,7 +90,7 @@ MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval)
 
 	if (err == MODBUS_ERR_OK)
 	{
-		*pval = &MBRegs[addr];
+		*pval = &MBRegVal[addr];
 	}
 	
 	MBRegUnlock();
@@ -105,7 +123,7 @@ MBerror MBRegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval)
 			{
 				if (MBRegCheckVal(addr, ARR2U16(pval)))
 				{
-					MBRegs[addr] = ARR2U16(pval);
+					MBRegVal[addr] = ARR2U16(pval);
 					MBRegUpdated(addr, ARR2U16(pval));
 				}
 				else
@@ -145,7 +163,7 @@ void MBRegSetValue(uint16_t addr, uint16_t val, MBerror *err)
 	if (addr < REG_NUM)
 	{
 		*err = MODBUS_ERR_OK;
-		MBRegs[addr] = val;
+		MBRegVal[addr] = val;
 	}
 	else
 	{
@@ -169,7 +187,7 @@ uint16_t MBRegGetValue(uint16_t addr, MBerror *err)
 	if (addr < REG_NUM)
 	{
 		*err = MODBUS_ERR_OK;
-		retval = MBRegs[addr];
+		retval = MBRegVal[addr];
 	}
 	else
 	{
@@ -188,10 +206,9 @@ uint16_t MBRegGetValue(uint16_t addr, MBerror *err)
  * @param op Operation code
  * @return Returns 1 if permission available
  */
-uint32_t MBRegCheckOp(uint16_t addr, RegOpMode op)
+static uint32_t MBRegCheckOp(uint16_t addr, uint8_t op)
 {
-${op_check}
-	return 1;
+	return MBRegOpt[addr].opt & op;
 }
 
 /**
@@ -200,10 +217,9 @@ ${op_check}
  * @param val Value
  * @return Returns 1 if permission available
  */
-uint32_t MBRegCheckVal(uint16_t addr, uint16_t val)
+static uint32_t MBRegCheckVal(uint16_t addr, uint16_t val)
 {
-${val_check}
-	return 1;
+	return (val >= MBRegOpt[addr].min) & (val <= MBRegOpt[addr].max);
 }
 
 /**
