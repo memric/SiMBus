@@ -1,7 +1,7 @@
 /*
- * simple_modbus_conf.h
+ * modbus_conf.h
  *
- * Simple ModBus RTU configuration file
+ * Simple ModBus configuration file
  *
  *  Created on: 28.11.2018
  *      Author: Valeriy Chudnikov
@@ -10,8 +10,8 @@
 #include <stdint.h>
 #include <assert.h>
 
-#ifndef SIMPLE_MODBUS_CONF_H_
-#define SIMPLE_MODBUS_CONF_H_
+#ifndef MODBUS_CONF_H_
+#define MODBUS_CONF_H_
 
 #define MODBUS_COILS_ENABLE		0	/*Enable coils read/write*/
 #define MODBUS_DINP_ENABLE		0	/*Enable Discrete Inputs read*/
@@ -46,6 +46,6 @@
 
 #define MB_ASSERT				assert
 
-typedef uint16_t MBerror;			/*Error type*/
+typedef uint8_t MBerror;			/*Error type*/
 
-#endif /* SIMPLE_MODBUS_CONF_H_ */
+#endif /* MODBUS_CONF_H_ */

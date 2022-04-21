@@ -9,7 +9,7 @@
 #ifndef SIMPLE_MASTER_H_
 #define SIMPLE_MASTER_H_
 
-#include "simple_modbus_conf.h"
+#include "modbus_conf.h"
 
 typedef struct {
 	MBerror (*itfs_write)(uint8_t *data, uint32_t len);

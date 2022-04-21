@@ -1,5 +1,5 @@
 /*
- * simple_modbus.c
+ * mb_rtu.c
  *
  *  Created on: 2016
  *      Author: Valeriy Chudnikov
@@ -23,9 +23,9 @@
 #define DE_HIGH()				mb->set_de(DEHIGH)
 #define DE_LOW()				mb->set_de(DELOW)
 
-static void MBRTU_Parser(smpl_modbus_t *mb);
-static void MBRTU_SendException(smpl_modbus_t *mb, MBerror excpt);
-static void MBRTU_LolevelSend(smpl_modbus_t *mb, uint32_t len);
+static void MBRTU_Parser(MBRTU_Handle_t *mb);
+static void MBRTU_SendException(MBRTU_Handle_t *mb, MBerror excpt);
+static void MBRTU_LolevelSend(MBRTU_Handle_t *mb, uint32_t len);
 #if MODBUS_REGS_ENABLE
 extern MBerror MBRegInit(void *arg);
 extern MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
@@ -37,7 +37,12 @@ extern MBerror MBCoilsInputsWriteCallback(uint16_t addr, uint16_t num, uint8_t *
 extern MBerror MBCoilWriteCallback(uint16_t addr, uint8_t val);
 #endif
 
-MBerror MBRTU_Init(smpl_modbus_t *mb)
+/**
+ * @brief Initializes Modbus RTU module and starts data reception
+ * @param mb Modbus handler
+ * @return Error code
+ */
+MBerror MBRTU_Init(MBRTU_Handle_t *mb)
 {
 	MB_ASSERT(mb != NULL);
 	MB_ASSERT(mb->addr > 0);
@@ -72,7 +77,7 @@ MBerror MBRTU_Init(smpl_modbus_t *mb)
  * @brief Modbus polling function. Checks incoming message.
  * @param mb
  */
-void MBRTU_Poll(smpl_modbus_t *mb)
+void MBRTU_Poll(MBRTU_Handle_t *mb)
 {
 	MB_ASSERT(mb != NULL);
 
@@ -97,7 +102,7 @@ void MBRTU_Poll(smpl_modbus_t *mb)
 	}
 }
 
-static void MBRTU_Parser(smpl_modbus_t *mb)
+static void MBRTU_Parser(MBRTU_Handle_t *mb)
 {
 	/* Packet structure
 	 * 8bit - Address
@@ -367,7 +372,7 @@ static void MBRTU_Parser(smpl_modbus_t *mb)
  * @param func
  * @param excpt
  */
-static void MBRTU_SendException(smpl_modbus_t *mb, MBerror excpt)
+static void MBRTU_SendException(MBRTU_Handle_t *mb, MBerror excpt)
 {
 	mb->tx_buf[0] = mb->rx_buf[0]; //address
 	mb->tx_buf[1] = mb->rx_buf[1] | 0x80; //function + exception
@@ -378,7 +383,7 @@ static void MBRTU_SendException(smpl_modbus_t *mb, MBerror excpt)
 	MBRTU_LolevelSend(mb, 5);
 }
 
-static void MBRTU_LolevelSend(smpl_modbus_t *mb, uint32_t len)
+static void MBRTU_LolevelSend(MBRTU_Handle_t *mb, uint32_t len)
 {
 	DE_HIGH();
 #if MODBUS_USE_US_TIMER
@@ -398,7 +403,7 @@ static void MBRTU_LolevelSend(smpl_modbus_t *mb, uint32_t len)
 	mb->last_tx_time = MODBUS_GET_TICK;
 }
 
-void MBRTU_ByteReceivedCallback(smpl_modbus_t *mb)
+void MBRTU_ByteReceivedCallback(MBRTU_Handle_t *mb)
 {
 	MB_ASSERT(mb != NULL);
 
@@ -420,7 +425,7 @@ void MBRTU_ByteReceivedCallback(smpl_modbus_t *mb)
 
 
 #if MODBUS_NONBLOCKING_TX
-void MBRTU_tx_cmplt(smpl_modbus_t *mb)
+void MBRTU_tx_cmplt(MBRTU_Handle_t *mb)
 {
 	mb->last_tx_time = MODBUS_GET_TICK;
 	mb->mbmode = RX;
@@ -429,7 +434,7 @@ void MBRTU_tx_cmplt(smpl_modbus_t *mb)
 }
 #endif
 
-void MBRTU_error(smpl_modbus_t *mb)
+void MBRTU_error(MBRTU_Handle_t *mb)
 {
 	MB_ASSERT(mb != NULL);
 

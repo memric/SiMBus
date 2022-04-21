@@ -1,6 +1,7 @@
 # Simple ModBus
 
-Minimal ModBus Client/Master code for MCU
+Minimal ModBus Client/Master code for MCU.
+Implements Modbus RTU client on baremetal or OS systems and Modbus TCP on FreeRTOS and LwIP.
 
 ## How to use
 

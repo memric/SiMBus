@@ -8,10 +8,14 @@
 #ifndef MBTCP_SERVER_H_
 #define MBTCP_SERVER_H_
 
-#include "simple_modbus_conf.h"
+#include "modbus_conf.h"
 
+/**
+ * @brief Defines maximum packet size as maximum application data unit (ADU)
+ * TCP MODBUS ADU = 253 bytes + MBAP (7 bytes)
+ */
 #ifndef MBTCP_MAX_PACKET_SIZE
-#define MBTCP_MAX_PACKET_SIZE	260 /*Maximum ADU size*/
+#define MBTCP_MAX_PACKET_SIZE	260
 #endif
 
 typedef struct {
