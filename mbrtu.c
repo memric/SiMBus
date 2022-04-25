@@ -132,7 +132,6 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 	uint16_t start_addr;
 	uint16_t points_num;
 	uint16_t tmp_crc;
-//	uint16_t val;
 	MBerror err = MODBUS_ERR_OK;
 #if MODBUS_WRMREGS_ENABLE
 	uint32_t byte_cnt;
@@ -459,6 +458,10 @@ void MBRTU_ByteReceivedCallback(MBRTU_Handle_t *mb)
 }
 
 #if MODBUS_NONBLOCKING_TX
+/**
+ * @brief Reserved for nonblocking Tx
+ * @param mb
+ */
 void MBRTU_tx_cmplt(MBRTU_Handle_t *mb)
 {
 	mb->last_tx_time = MODBUS_GET_TICK;
