@@ -9,6 +9,9 @@
 #include "string.h"
 #include "mb_crc.h"
 
+/**
+ * @brief Supported function codes definitions
+ */
 #define MODBUS_FUNC_RDCOIL 		1 	/*Read Coil*/
 #define MODBUS_FUNC_RDDINP 		2 	/*Read discrete input*/
 #define MODBUS_FUNC_RDHLDREGS 	3	/*Read holding register*/
@@ -35,12 +38,15 @@ static void MBRTU_LolevelSend(MBRTU_Handle_t *mb, uint32_t len);
 extern MBerror MBRegInit(void *arg);
 extern MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **regs);
 extern MBerror MBRegWriteCallback(uint16_t addr, uint16_t val);
-#endif
-#if MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE
-extern MBerror MBCoilInpReadCallback(uint16_t addr, uint16_t num, uint8_t **coils);
-extern MBerror MBCoilsInputsWriteCallback(uint16_t addr, uint16_t num, uint8_t *coils);
-extern MBerror MBCoilWriteCallback(uint16_t addr, uint8_t val);
-#endif
+#endif /*MODBUS_REGS_ENABLE*/
+#if MODBUS_COILS_ENABLE
+extern MBerror MBCoilsReadCallback(uint16_t addr, uint16_t num, uint8_t **coils);
+extern MBerror MBCoilWriteCallback(uint16_t addr, uint8_t val); //TODO Combine with next function
+extern MBerror MBCoilsWriteCallback(uint16_t addr, uint16_t num, uint8_t *coils);
+#endif /*MODBUS_COILS_ENABLE*/
+#if MODBUS_DINP_ENABLE
+extern MBerror MBInputsReadCallback(uint16_t addr, uint16_t num, uint8_t **coils);
+#endif /*MODBUS_DINP_ENABLE*/
 
 /**
  * @brief Initializes Modbus RTU module and starts data reception
@@ -109,6 +115,10 @@ void MBRTU_Poll(MBRTU_Handle_t *mb)
 	}
 }
 
+/**
+ * @brief Modbus RTU ADU parser
+ * @param mb Modbus handle
+ */
 static void MBRTU_Parser(MBRTU_Handle_t *mb)
 {
 	/* Packet structure
@@ -122,7 +132,7 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 	uint16_t start_addr;
 	uint16_t points_num;
 	uint16_t tmp_crc;
-	uint16_t val;
+//	uint16_t val;
 	MBerror err = MODBUS_ERR_OK;
 #if MODBUS_WRMREGS_ENABLE
 	uint32_t byte_cnt;
@@ -139,10 +149,16 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 		/*check function*/
 		switch (func)
 		{
+#if MODBUS_COILS_ENABLE
 		/*Function 01: read coil status*/
 		case MODBUS_FUNC_RDCOIL:
+#endif /*MODBUS_COILS_ENABLE*/
+
+#if MODBUS_DINP_ENABLE
 		/*Function 02: read input status*/
 		case MODBUS_FUNC_RDDINP:
+#endif /*MODBUS_DINP_ENABLE*/
+
 #if MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 6))
 			{
@@ -150,8 +166,21 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 
 				if (points_num >= 1 || points_num <= 2000)
 				{
-					/*coils/dinputs read callback*/
-					err = MBCoilInpReadCallback(start_addr, points_num, &coil_values);
+#if MODBUS_COILS_ENABLE
+					if (func == MODBUS_FUNC_RDCOIL)
+					{
+						/*coils read callback*/
+						err = MBCoilsReadCallback(start_addr, points_num, &coil_values);
+					}
+#endif /*MODBUS_COILS_ENABLE*/
+
+#if MODBUS_DINP_ENABLE
+					if (func == MODBUS_FUNC_RDDINP)
+					{
+						/*dinputs read callback*/
+						err = MBInputsReadCallback(start_addr, points_num, &coil_values);
+					}
+#endif /*MODBUS_DINP_ENABLE*/
 				}
 				else
 				{
@@ -179,16 +208,14 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 
 				MBRTU_LolevelSend(mb, 3 + mb->tx_buf[2] + 2);
 			}
-#else
-			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
-#endif /*MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE*/
 			break;
+#endif /*MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE*/
 
+#if MODBUS_REGS_ENABLE
 		/*Function 03: read holding registers*/
 		case MODBUS_FUNC_RDHLDREGS:
 		/*Function 04: read input registers*/
 		case MODBUS_FUNC_RDINREGS:
-#if MODBUS_REGS_ENABLE
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 6))
 			{
 				uint16_t *reg_values;
@@ -224,17 +251,15 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 
 				MBRTU_LolevelSend(mb, 3 + mb->tx_buf[2] + 2);
 			}
-#else
-			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
-#endif /*MODBUS_REGS_ENABLE*/
 			break;
+#endif /*MODBUS_REGS_ENABLE*/
 
-			/*Function 05: force single coil*/
-		case MODBUS_FUNC_WRSCOIL:
 #if MODBUS_COILS_ENABLE
-			val = points_num;
+		/*Function 05: force single coil*/
+		case MODBUS_FUNC_WRSCOIL:
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 6))
 			{
+				uint16_t val = points_num;
 				uint8_t c_val = 0;
 				if (val)
 				{
@@ -263,19 +288,16 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 
 				MBRTU_LolevelSend(mb, 8);
 			}
-#else
-			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
-#endif /*MODBUS_COILS_ENABLE*/
 			break;
+#endif /*MODBUS_COILS_ENABLE*/
 
+#if MODBUS_REGS_ENABLE
 		/*Function 06: Preset Single Register*/
 		case MODBUS_FUNC_WRSREG:
-#if MODBUS_REGS_ENABLE
-			val = points_num;
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 6))
 			{
 				/*reg write callback*/
-				err = MBRegsWriteCallback(start_addr, 1, (uint8_t *) &val);
+				err = MBRegsWriteCallback(start_addr, 1, &mb->rx_buf[4]);
 				if (err)
 				{
 					/*send exception*/
@@ -289,18 +311,18 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 
 				MBRTU_LolevelSend(mb, 8);
 			}
-#else
-			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
-#endif /*MODBUS_REGS_ENABLE*/
 			break;
+#endif /*MODBUS_REGS_ENABLE*/
 
-		case MODBUS_FUNC_WRMCOILS: //write coils
 #if MODBUS_COILS_ENABLE && MODBUS_WRMCOILS_ENABLE
-			val = (uint16_t) mb->rx_buf[6];
-			tmp_crc = ARR2U16(&mb->rx_buf[7]);
-			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 7+val))
+		/*Function 15: Write Multiple Coils*/
+		case MODBUS_FUNC_WRMCOILS:
+		{
+			uint16_t byte_cnt = (uint16_t) mb->rx_buf[6];
+			tmp_crc = ARR2U16(&mb->rx_buf[7 + byte_cnt]);
+			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 7 + byte_cnt))
 			{
-				err = MBCoilsInputsWriteCallback(start_addr, points_num, &mb->rx_buf[7]);
+				err = MBCoilsWriteCallback(start_addr, points_num, &mb->rx_buf[7]);
 				if (err)
 				{
 					/*send exception*/
@@ -319,14 +341,13 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 
 				MBRTU_LolevelSend(mb, 8);
 			}
-#else
-			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
-#endif
-			break;
+		}
+		break;
+#endif /*MODBUS_COILS_ENABLE && MODBUS_WRMCOILS_ENABLE*/
 
+#if MODBUS_WRMREGS_ENABLE
 		/*Function 16: Write multiple registers*/
 		case MODBUS_FUNC_WRMREGS:
-#if MODBUS_WRMREGS_ENABLE
 			byte_cnt = mb->rx_buf[6];
 			if (byte_cnt <= 123*2)
 			{
@@ -361,12 +382,11 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 					MBRTU_LolevelSend(mb, 8);
 				}
 			}
-#else
-			MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
-#endif
 			break;
+#endif /*MODBUS_WRMREGS_ENABLE*/
 
 			default:
+				/*Send exception 01 (ILLEGAL FUNCTION)*/
 				MBRTU_SendException(mb, MODBUS_ERR_ILLEGFUNC);
 				break;
 		}
@@ -375,9 +395,8 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 
 /**
  * @brief Sends exception to client
- * @param mb
- * @param func
- * @param excpt
+ * @param mb Modbus handle
+ * @param excpt Exception code
  */
 static void MBRTU_SendException(MBRTU_Handle_t *mb, MBerror excpt)
 {
@@ -390,6 +409,11 @@ static void MBRTU_SendException(MBRTU_Handle_t *mb, MBerror excpt)
 	MBRTU_LolevelSend(mb, 5);
 }
 
+/**
+ * @brief Calls low level DE and Tx functions
+ * @param mb Modbus handle
+ * @param len Message length
+ */
 static void MBRTU_LolevelSend(MBRTU_Handle_t *mb, uint32_t len)
 {
 	DE_HIGH();
@@ -410,6 +434,10 @@ static void MBRTU_LolevelSend(MBRTU_Handle_t *mb, uint32_t len)
 	mb->last_tx_time = MODBUS_GET_TICK;
 }
 
+/**
+ * @brief Call this function on byte reception
+ * @param mb Modbus handle
+ */
 void MBRTU_ByteReceivedCallback(MBRTU_Handle_t *mb)
 {
 	MB_ASSERT(mb != NULL);
@@ -430,7 +458,6 @@ void MBRTU_ByteReceivedCallback(MBRTU_Handle_t *mb)
 	}
 }
 
-
 #if MODBUS_NONBLOCKING_TX
 void MBRTU_tx_cmplt(MBRTU_Handle_t *mb)
 {
@@ -441,6 +468,10 @@ void MBRTU_tx_cmplt(MBRTU_Handle_t *mb)
 }
 #endif
 
+/**
+ * @brief Call this function on UART error case
+ * @param mb Modbus handle
+ */
 void MBRTU_error(MBRTU_Handle_t *mb)
 {
 	MB_ASSERT(mb != NULL);
