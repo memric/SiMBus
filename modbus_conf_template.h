@@ -7,13 +7,13 @@
  *      Author: Valeriy Chudnikov
  */
 
-#include <stdint.h>
-#include <assert.h>
-
 #ifndef MODBUS_CONF_H_
 #define MODBUS_CONF_H_
 
-#define MODBUS_COILS_ENABLE		0	/*Enable coils read/write*/
+#include <stdint.h>
+#include <assert.h>
+
+#define MODBUS_COILS_ENABLE		1	/*Enable coils read/write*/
 #define MODBUS_DINP_ENABLE		0	/*Enable Discrete Inputs read*/
 #define MODBUS_REGS_ENABLE		1	/*Enable registers*/
 #define MODBUS_WRMCOILS_ENABLE	0	/*Enable multiple coils write*/
@@ -22,20 +22,18 @@
 #define MODBUS_NONBLOCKING_TX	0	/*Use non blocking Tx*/
 #define MODBUS_RXWAIT_TIME		5
 
-/*Error codes*/
-#define MODBUS_ERR_OK 			0
-#define MODBUS_ERR_ILLEGFUNC 	1
-#define MODBUS_ERR_ILLEGADDR 	2
-#define MODBUS_ERR_ILLEGVAL  	3
-
 #if MODBUS_TRACE_ENABLE
-#define MBRTU_TRACE 			printf
+#define MODBUS_TRACE 			printf
 #else
-#define MBRTU_TRACE(msg...)
+#define MODBUS_TRACE(msg...)
+#endif
+
+#ifndef MODBUS_SOFT_DE
+#define MODBUS_SOFT_DE			1	/*Enables software DE signal assertion*/
 #endif
 
 #ifndef MODBUS_USE_US_TIMER
-#define MODBUS_USE_US_TIMER		1	/*us Times usage enabling for DE delay*/
+#define MODBUS_USE_US_TIMER		0	/*us Times usage enabling for DE delay*/
 #endif
 
 #ifndef MODBUS_USE_TABLE_CRC

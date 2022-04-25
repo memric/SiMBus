@@ -20,8 +20,13 @@
 
 #define MODBUS_MSG_MIN_LEN		6	/*Minimal message length (addr + func + strt addr + CRC)*/
 
+#if MODBUS_SOFT_DE
 #define DE_HIGH()				mb->set_de(DEHIGH)
 #define DE_LOW()				mb->set_de(DELOW)
+#else
+#define DE_HIGH()
+#define DE_LOW()
+#endif
 
 static void MBRTU_Parser(MBRTU_Handle_t *mb);
 static void MBRTU_SendException(MBRTU_Handle_t *mb, MBerror excpt);
@@ -50,7 +55,9 @@ MBerror MBRTU_Init(MBRTU_Handle_t *mb)
 	MB_ASSERT(mb->tx_func != NULL);
 	MB_ASSERT(mb->rx_func != NULL);
 	MB_ASSERT(mb->rx_stop != NULL);
+#if MODBUS_SOFT_DE
 	MB_ASSERT(mb->set_de != NULL);
+#endif
 #if MODBUS_USE_US_TIMER
 	MB_ASSERT(mb->us_sleep != NULL);
 #endif
@@ -268,7 +275,7 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb)
 			if (tmp_crc == ModRTU_CRC(mb->rx_buf, 6))
 			{
 				/*reg write callback*/
-				err = MBRegWriteCallback(start_addr, val);
+				err = MBRegsWriteCallback(start_addr, 1, (uint8_t *) &val);
 				if (err)
 				{
 					/*send exception*/
