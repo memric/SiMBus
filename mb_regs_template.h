@@ -7,15 +7,8 @@
 #ifndef MB_REGS_H_
 #define MB_REGS_H_
 
-#include "modbus_conf.h"
+#include "mb_pdu.h"
 #include <stdint.h>
-
-#define MODBUS_ERR_OK 				0
-#define MODBUS_ERR_ILLEGFUNC		1
-#define MODBUS_ERR_ILLEGADDR		2
-#define MODBUS_ERR_ILLEGVAL			3
-#define MODBUS_ERR_SYS				10
-#define MODBUS_ERR_INTFS			11
 
 #define REG_OPT_UR					0x01
 #define REG_OPT_UWR					0x02

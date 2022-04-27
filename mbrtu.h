@@ -8,8 +8,7 @@
 #ifndef MBRTU_H_
 #define MBRTU_H_
 
-#include "modbus_conf.h"
-#include "mb_regs.h"
+#include "mb_pdu.h"
 
 /**
  * @brief Defines maximum message size as maximum application data unit (ADU)
