@@ -52,9 +52,6 @@
 
 /* USER CODE END */
 
-#define ARR2U16(a)		(uint16_t) (*(a) << 8) | *( (a)+1 )
-#define U162ARR(b,a)	*(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
-
 MBerror MBRegInit(void *arg);
 MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval);
 MBerror MBRegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval);
