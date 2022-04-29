@@ -44,7 +44,9 @@ extern MBerror MBInputsReadCallback(uint16_t addr, uint16_t num, uint8_t **coils
  */
 MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen)
 {
-	MB_ASSERT(pData != NULL);
+	MB_ASSERT(pReqData != NULL);
+	MB_ASSERT(pRespData != NULL);
+	MB_ASSERT(pRespLen != NULL);
 
 	MBerror err = MODBUS_ERR_OK;
 	*pRespLen = 0;
