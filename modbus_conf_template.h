@@ -16,7 +16,8 @@
 #define MODBUS_COILS_ENABLE		1	/*Enable coils read/write. Functions 1 & 5*/
 #define MODBUS_WRMCOILS_ENABLE	0	/*Enable multiple coils write. Function 15*/
 #define MODBUS_DINP_ENABLE		0	/*Enable Discrete Inputs read. Function 2*/
-#define MODBUS_REGS_ENABLE		1	/*Enable registers. Function 3, 4, 6*/
+#define MODBUS_REGS_ENABLE		1	/*Enable registers. Function 3, 4*/
+#define MODBUS_WRREG_ENABLE		1	/*Enable Write Single Register. Function 6*/
 #define MODBUS_WRMREGS_ENABLE	1	/*Enable Write Multiple Registers. Function 16*/
 
 #define MODBUS_TRACE_ENABLE 	0	/*Enable Trace*/

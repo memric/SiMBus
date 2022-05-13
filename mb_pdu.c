@@ -195,7 +195,7 @@ MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen)
 		break;
 #endif /*MODBUS_COILS_ENABLE*/
 
-#if MODBUS_REGS_ENABLE
+#if MODBUS_WRREG_ENABLE
 	/*Function 06: Preset Single Register*/
 	case MODBUS_FUNC_WRSREG:
 		{
