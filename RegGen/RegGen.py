@@ -7,6 +7,8 @@ import datetime
 import string
 
 from argparse import ArgumentParser
+from rich.console import Console
+from rich.table import Table
 
 REG_MIN_VALUE = 0
 REG_MAX_VALUE = 65535
@@ -59,8 +61,10 @@ def main(argv=None): # IGNORE:C0111
         last_reg_addr = 0
         max_name_len = 0
         reg_map = []
+
+        console = Console()
         
-        print("Check input file")
+        console.print("Check input file")
         
         '''Check CSV table content'''
         try:
@@ -70,33 +74,33 @@ def main(argv=None): # IGNORE:C0111
                 
                 addr = int(row['Address'])
                 if addr < REG_MIN_VALUE or addr > REG_MAX_VALUE:
-                    print("Error: Address of register \"%s\" is not correct"%(row['Name']))
+                    console.print("[red]Error: Address of register \"%s\" is not correct"%(row['Name']))
                     sys.exit(-1)
                     
                 min = str_tield2int(row['Min'])
                 if min < REG_MIN_VALUE or min > REG_MAX_VALUE:
-                    print("Error: Minimum value of register \"%s\" is not correct"%(row['Name']))
+                    console.print("[red]Error: Minimum value of register \"%s\" is not correct"%(row['Name']))
                     sys.exit(-1)
                     
                 max = str_tield2int(row['Max'])
                 if max < REG_MIN_VALUE or max > REG_MAX_VALUE:
-                    print("Error: Maximum value of register \"%s\" is not correct"%(row['Name']))
+                    console.print("[red]Error: Maximum value of register \"%s\" is not correct"%(row['Name']))
                     sys.exit(-1)
                     
                 if min >= max:
-                    print("Warning: Minimum value of register \"%s\" is equal or greiter than maximum value"%(row['Name']))
+                    console.print("[yellow]Warning: Minimum value of register \"%s\" is equal or greiter than maximum value"%(row['Name']))
                     
                 default = str_tield2int(row['Default'])
                 if default < REG_MIN_VALUE or default > REG_MAX_VALUE:
-                    print("Error: Default value of register \"%s\" is not correct"%(row['Name']))
+                    console.print("[red]Error: Default value of register \"%s\" is not correct"%(row['Name']))
                     sys.exit(-1)
                     
                 if row['Mode'].upper() == 'R' or row['Mode'].upper() == 'W' or row['Mode'].upper() == 'RW' or row['Mode'].upper() == 'R/W':
                     oper = row['Mode'].upper()
                 else:
                     print("Error: Mode of register \"%s\" is not correct"%(row['Name']))
-                                       
-                print("Register: \"%s\"; Addr: %s; Min: %d; Max: %d; Default: %d; Oper: %s"%(row['Name'], hex(addr), min, max, default, oper))
+         
+                # print("Register: \"%s\"; Addr: %s; Min: %d; Max: %d; Default: %d; Oper: %s"%(row['Name'], hex(addr), min, max, default, oper))
                 
                 reg_map.append({'Address':addr, 'Min':min, 'Max':max, 'Default':default, 'Mode':oper, 'Name':row['Name'], 'Comment':row['Comment']})
                 
@@ -109,11 +113,27 @@ def main(argv=None): # IGNORE:C0111
         except csv.Error as e:
             sys.exit('file {}, line {}: {}'.format(filename, reader.line_num, e))
             
-        print("Last Address: %s"%(hex(last_reg_addr)))
+        console.print("Last Address: %s"%(hex(last_reg_addr)))
         reg_num = last_reg_addr + 1
-        print("Registers number: %s"%(reg_num))
+        console.print("Registers number: %s"%(reg_num))
         
-        reg_map = sorted(reg_map, key=lambda k: k['Address']) 
+        reg_map = sorted(reg_map, key=lambda k: k['Address'])
+
+    '''Create Table'''
+    table = Table(title="[bold]Registers map")
+
+    table.add_column("Address", style="cyan", no_wrap=True)
+    table.add_column("Caption", style="green")
+    table.add_column("Min")
+    table.add_column("Max")
+    table.add_column("Default")
+    table.add_column("Mode")
+
+    for row in reg_map:
+        #Fill Console table
+        table.add_row(hex(row['Address']), row['Name'], str(min), str(max), str(default), oper)
+
+    console.print(table)
         
     '''Create C files'''
         
@@ -163,7 +183,7 @@ def main(argv=None): # IGNORE:C0111
                                                reg_num = reg_num)
     rmh_f.write(rmh_content)
     
-    print("File mb_regs.h is created")
+    console.print("[green]File mb_regs.h is created")
     
     '''Registers functions source file'''
     #open template file
@@ -214,7 +234,7 @@ def main(argv=None): # IGNORE:C0111
                                                def_vals = reg_def_vals)
     mbr_f.write(mbr_content)
     
-    print("File mb_regs.c is created")
+    console.print("[green]File mb_regs.c is created")
             
 if __name__ == "__main__":
     sys.exit(main())
