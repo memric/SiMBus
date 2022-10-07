@@ -2,3 +2,4 @@
 RegGen/reg_map.h
 RegGen/.settings
 RegGen/mb_regs.h
+Scripts/__pycache__
