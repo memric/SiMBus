@@ -134,6 +134,8 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb, uint16_t len)
 			}
 			else
 			{
+			    MODBUS_TRACE("Function error: %d\r\n", err);
+
 				/*Send exception*/
 				MBRTU_SendException(mb, err);
 			}

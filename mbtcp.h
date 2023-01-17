@@ -19,10 +19,11 @@
 #endif
 
 typedef struct {
-	uint8_t *rx_buf; /*Rx buffer*/
-	uint8_t *tx_buf; /*Tx buffer*/
-	uint16_t rx_buf_size; /*Rx buffer size*/
-	uint16_t tx_buf_size; /*Tx buffer size*/
+        uint8_t unit;                                       /*!< Slave address */
+        uint8_t *rx_buf; /*Rx buffer*/
+        uint8_t *tx_buf; /*Tx buffer*/
+        uint16_t rx_buf_size; /*Rx buffer size*/
+        uint16_t tx_buf_size; /*Tx buffer size*/
 } MBTCP_Handle_t;
 
 MBerror MBTCP_Init(MBTCP_Handle_t *mbtcp);

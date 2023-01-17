@@ -184,7 +184,7 @@ MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen)
 			}
 
 			/*coil write callback*/
-			err = MBCoilWriteCallback(start_addr, c_val);
+			err = MBCoilsWriteCallback(start_addr, 1, &c_val);
 
 			if (err == MODBUS_ERR_OK)
 			{
