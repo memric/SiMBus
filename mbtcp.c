@@ -156,8 +156,8 @@ static void MBTCP_Thread(void *arg)
 
 #if MODBUS_TRACE_ENABLE
         char str[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &(client_addr.sin_addr), str, INET_ADDRSTRLEN);MODBUS_TRACE("New connection from %s\r\n",
-                                                                                       str);
+        inet_ntop(AF_INET, &(client_addr.sin_addr), str, INET_ADDRSTRLEN);
+        MODBUS_TRACE("New connection from %s\r\n", str);
 #endif /* MODBUS_TRACE_ENABLE */
 
         while (1)
@@ -204,17 +204,17 @@ static uint16_t MBTCP_Response(MBTCP_Handle_t *mbtcp, mbap_t *mbap_header, uint3
     mbap_header->plen = resp_len + 1; /* PDU len + Unit ID */
 
     U162ARR(mbap_header->tran_id, outdata);
-    U162ARR(mbap_header->prot_id, outdata + 2);
-    U162ARR(mbap_header->plen, outdata + 4);
-    *(outdata + 6) = mbap_header->unit_id;
+    U162ARR(mbap_header->prot_id, &outdata[2]);
+    U162ARR(mbap_header->plen, &outdata[4]);
+    outdata[6] = mbap_header->unit_id;
 
     return MBAP_SIZE + resp_len;
 }
 
 /**
- * @brief Incoming packet parser
- * @param mbtcp
- * @param inlen
+ * @brief       Incoming packet parser
+ * @param mbtcp Pointer to MBTCP handler
+ * @param inlen Packet length
  * @return
  */
 static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
@@ -232,10 +232,10 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
 
     /*---MBAP---*/
     mbap_t mbap;
-    mbap.tran_id = ARR2U16(indata); /*transaction ID*/
-    mbap.prot_id = ARR2U16(indata + 2); /*protocol ID*/
-    mbap.plen = ARR2U16(indata + 4); /*length*/
-    mbap.unit_id = *(indata + 6); /*Unit ID*/
+    mbap.tran_id = ARR2U16(indata);     /*transaction ID*/
+    mbap.prot_id = ARR2U16(&indata[2]); /*protocol ID*/
+    mbap.plen = ARR2U16(&indata[4]);    /*length*/
+    mbap.unit_id = indata[6];           /*Unit ID*/
 
     if (mbap.prot_id != 0)
     {
@@ -250,7 +250,7 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
     }
 
     /*--PDU---*/
-    uint8_t *pPDU = &indata[7];
+    uint8_t *pPDU = &indata[MBAP_SIZE];
     uint8_t *pResp = &mbtcp->tx_buf[MBAP_SIZE];
 
     err = MB_PDU_Parser(pPDU, pResp, &resp_len);
