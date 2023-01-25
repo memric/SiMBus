@@ -193,7 +193,7 @@ MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen)
                 *pRespLen = 5;
             }
         }
-            break;
+        break;
 #endif /*MODBUS_COILS_ENABLE*/
 
 #if MODBUS_WRREG_ENABLE
@@ -234,7 +234,7 @@ MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen)
                 err = MODBUS_ERR_ILLEGVAL;
             }
         }
-            break;
+        break;
 #endif /*MODBUS_COILS_ENABLE && MODBUS_WRMCOILS_ENABLE*/
 
 #if MODBUS_WRMREGS_ENABLE

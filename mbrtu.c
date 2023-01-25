@@ -20,13 +20,12 @@
 #endif
 
 static void MBRTU_Parser(MBRTU_Handle_t *mb, uint16_t len);
-static void MBRTU_SendException(MBRTU_Handle_t *mb, MBerror excpt);
 static void MBRTU_LolevelSend(MBRTU_Handle_t *mb, uint32_t len);
 
 /**
- * @brief Initializes Modbus RTU module and starts data reception
- * @param mb Modbus handler
- * @return Error code
+ * @brief       Initializes Modbus RTU module and starts data reception
+ * @param mb    Modbus RTU handle
+ * @return      Error code
  */
 MBerror MBRTU_Init(MBRTU_Handle_t *mb)
 {
@@ -62,9 +61,9 @@ MBerror MBRTU_Init(MBRTU_Handle_t *mb)
 }
 
 /**
- * @brief Modbus polling function. Checks incoming message.
- *        Call this function periodically in loop or thread.
- * @param mb
+ * @brief       Modbus polling function. Checks incoming message.
+ *              Call this function periodically in loop or thread.
+ * @param mb    Modbus RTU handle
  */
 void MBRTU_Poll(MBRTU_Handle_t *mb)
 {
@@ -94,8 +93,8 @@ void MBRTU_Poll(MBRTU_Handle_t *mb)
 }
 
 /**
- * @brief Modbus RTU ADU parser
- * @param mb Modbus handle
+ * @brief       Modbus RTU ADU parser
+ * @param mb    Modbus RTU handle
  */
 static void MBRTU_Parser(MBRTU_Handle_t *mb, uint16_t len)
 {
@@ -118,26 +117,22 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb, uint16_t len)
 		/*Check CRC with incoming data*/
 		if (tmp_crc == ModRTU_CRC(mb->rx_buf, len - 2))
 		{
+		    /* Parse PDU data */
 			err = MB_PDU_Parser(pPDU, pResp, &resp_len);
 
-			if (err == MODBUS_ERR_OK)
+			if (resp_len > 0)
 			{
-				if (resp_len > 0)
-				{
-					/*Send response*/
-					mb->tx_buf[0] = mb->addr;
-					tmp_crc = ModRTU_CRC(mb->tx_buf, 1 + resp_len);
-					U162ARR(tmp_crc, &mb->tx_buf[1 + resp_len]);
+			    if (err != MODBUS_ERR_OK)
+			    {
+			        MODBUS_TRACE("Function error: %d\r\n", err);
+			    }
 
-					MBRTU_LolevelSend(mb, 1 + resp_len + 2);
-				}
-			}
-			else
-			{
-			    MODBUS_TRACE("Function error: %d\r\n", err);
+			    /*Send response*/
+			    mb->tx_buf[0] = mb->addr;
+			    tmp_crc = ModRTU_CRC(mb->tx_buf, 1 + resp_len);
+			    U162ARR(tmp_crc, &mb->tx_buf[1 + resp_len]);
 
-				/*Send exception*/
-				MBRTU_SendException(mb, err);
+			    MBRTU_LolevelSend(mb, 1 + resp_len + 2);
 			}
 		}
 		else
@@ -148,44 +143,25 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb, uint16_t len)
 }
 
 /**
- * @brief Sends exception to client
- * @param mb Modbus handle
- * @param excpt Exception code
- */
-static void MBRTU_SendException(MBRTU_Handle_t *mb, MBerror excpt)
-{
-	mb->tx_buf[0] = mb->rx_buf[0]; //address
-	mb->tx_buf[1] = mb->rx_buf[1] | 0x80; //function + exception
-	mb->tx_buf[2] = excpt; //exception
-	uint16_t tmp_crc = ModRTU_CRC(mb->tx_buf, 3);
-	U162ARR(tmp_crc, &mb->tx_buf[3]);
-
-	MBRTU_LolevelSend(mb, 5);
-}
-
-/**
- * @brief Calls low level DE and Tx functions
- * @param mb Modbus handle
- * @param len Message length
+ * @brief       Calls low level DE and Tx functions
+ * @param mb    Modbus handle
+ * @param len   Message length
  */
 static void MBRTU_LolevelSend(MBRTU_Handle_t *mb, uint32_t len)
 {
 	DE_HIGH();
+
 #if MODBUS_USE_US_TIMER
 	mb->us_sleep(100);
 #endif
 
-#if MODBUS_NONBLOCKING_TX
-
-#else
 	mb->tx_func(mb->tx_buf, len);
+
 #if MODBUS_USE_US_TIMER
 	mb->us_sleep(100);
 #endif
-	DE_LOW();
-#endif
 
-	mb->last_tx_time = MODBUS_GET_TICK;
+	DE_LOW();
 }
 
 /**

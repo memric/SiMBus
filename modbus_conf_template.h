@@ -21,7 +21,6 @@
 #define MODBUS_WRMREGS_ENABLE	1	/*Enable Write Multiple Registers. Function 16*/
 
 #define MODBUS_TRACE_ENABLE 	0	/*Enable Trace*/
-#define MODBUS_NONBLOCKING_TX	0	/*Use non blocking Tx*/
 #define MODBUS_RXWAIT_TIME		5
 
 #if MODBUS_TRACE_ENABLE

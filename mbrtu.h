@@ -31,7 +31,6 @@ typedef struct {
 	uint8_t *rx_byte;									/*!< Pointer to current rx byte */
 	uint32_t rx_buf_len;								/*!< Size of rx buffer */
 	uint32_t last_rx_byte_time;							/*!< Time of reception last byte */
-	uint32_t last_tx_time;								/*!< Time of transmission last byte */
 	enum intfs_mode mbmode;								/*!< Current mode (rx/tx) */
 	MBerror (*rx_func)(uint8_t *byte);					/*!< Low level rx function pointer */
 	MBerror (*tx_func)(uint8_t *data, uint32_t len);	/*!< Low level tx function pointer */

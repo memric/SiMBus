@@ -89,4 +89,4 @@ uint16_t ModRTU_CRC(uint8_t *buf, uint16_t len)
 	return (uint16_t) ((crc << 8) & 0xff00) | ((crc >> 8) & 0xff);
 }
 
-#endif
+#endif /* MODBUS_USE_TABLE_CRC */
