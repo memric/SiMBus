@@ -77,7 +77,7 @@ MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen)
 
 #if MODBUS_COILS_ENABLE || MODBUS_DINP_ENABLE
         {
-            uint8_t *resp_values;
+            uint8_t *resp_values = NULL;
 
             if (points_num >= 1 && points_num <= 2000)
             {
@@ -103,7 +103,7 @@ MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen)
                 err = MODBUS_ERR_ILLEGVAL;
             }
 
-            if (err == MODBUS_ERR_OK)
+            if ((err == MODBUS_ERR_OK) && (resp_values != NULL))
             {
                 /*Prepare response PDU message*/
                 uint8_t resp_bytes = (uint8_t) ((points_num + 7) / 8); /*response bytes number*/
@@ -129,7 +129,7 @@ MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen)
 	/* Function 04: read input registers */
 	case MODBUS_FUNC_RDINREGS:
 		{
-			uint16_t *reg_values;
+			uint16_t *reg_values = NULL;
 
 			if (points_num >= 1 && points_num <= 125)
 			{
@@ -142,7 +142,7 @@ MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen)
 				err = MODBUS_ERR_ILLEGVAL;
 			}
 
-			if (err == MODBUS_ERR_OK)
+			if ((err == MODBUS_ERR_OK) && (reg_values != NULL))
 			{
 				/*Prepare response PDU message*/
 				uint16_t resp_bytes = points_num * 2; /*response bytes number*/
