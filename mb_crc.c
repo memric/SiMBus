@@ -52,32 +52,36 @@ static const uint8_t aucCRCLo[] = {
     0x41, 0x81, 0x80, 0x40
 };
 
-uint16_t ModRTU_CRC( uint8_t * buf, uint16_t len )
+uint16_t MBRTU_CRC(uint8_t *buf, uint16_t len)
 {
-	uint8_t           ucCRCHi = 0xFF;
-	uint8_t           ucCRCLo = 0xFF;
-    int             iIndex;
+    uint8_t ucCRCHi = 0xFF;
+    uint8_t ucCRCLo = 0xFF;
+    int iIndex;
 
-    while( len-- )
+    while (len--)
     {
-        iIndex = ucCRCLo ^ *( buf++ );
-        ucCRCLo = ( uint8_t )( ucCRCHi ^ aucCRCHi[iIndex] );
+        iIndex = ucCRCLo ^ *(buf++);
+        ucCRCLo = (uint8_t) (ucCRCHi ^ aucCRCHi[iIndex]);
         ucCRCHi = aucCRCLo[iIndex];
     }
-    return ( uint16_t )( ucCRCLo << 8 | ucCRCHi );
+    return (uint16_t) (ucCRCLo << 8 | ucCRCHi);
 }
 
 #else
-
-uint16_t ModRTU_CRC(uint8_t *buf, uint16_t len)
+uint16_t MBRTU_CRC(uint8_t *buf, uint16_t len)
 {
 	uint16_t crc = 0xFFFF;
+	uint16_t pos;
+	uint8_t i;
 
-	for (int pos = 0; pos < len; pos++) {
+	for (pos = 0; pos < len; pos++)
+	{
 		crc ^= (uint16_t) buf[pos];
 
-		for (int i = 8; i != 0; i--) {
-			if ((crc & 0x0001) != 0) {
+		for (i = 8; i > 0; i--)
+		{
+			if ((crc & 0x0001) != 0)
+			{
 				crc >>= 1;
 				crc ^= 0xA001;
 			}
@@ -86,7 +90,7 @@ uint16_t ModRTU_CRC(uint8_t *buf, uint16_t len)
 		}
 	}
 
-	return (uint16_t) ((crc << 8) & 0xff00) | ((crc >> 8) & 0xff);
+	return (uint16_t) (((crc << 8) & 0xff00) | ((crc >> 8) & 0xff));
 }
 
 #endif /* MODBUS_USE_TABLE_CRC */

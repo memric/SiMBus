@@ -3,6 +3,6 @@
 
 #include <stdint.h>
 
-uint16_t ModRTU_CRC(uint8_t *buf, uint16_t len);
+uint16_t MBRTU_CRC(uint8_t *buf, uint16_t len);
 
-#endif
+#endif /* MB_CRC_H_ */

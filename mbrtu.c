@@ -71,7 +71,7 @@ void MBRTU_Poll(MBRTU_Handle_t *mb)
 
 	if (mb->mbmode == RX)
 	{
-		if ((mb->rx_byte > mb->rx_buf) && (MODBUS_GET_TICK - mb->last_rx_byte_time > MODBUS_RXWAIT_TIME))
+		if ((mb->rx_byte > mb->rx_buf) && ((MODBUS_GET_TICK - mb->last_rx_byte_time) > MODBUS_RXWAIT_TIME))
 		{
 			mb->rx_stop();
 			mb->mbmode = TX;
@@ -115,7 +115,7 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb, uint16_t len)
 		tmp_crc = ARR2U16(&mb->rx_buf[len - 2]);
 
 		/*Check CRC with incoming data*/
-		if (tmp_crc == ModRTU_CRC(mb->rx_buf, len - 2))
+		if (tmp_crc == MBRTU_CRC(mb->rx_buf, len - 2))
 		{
 		    /* Parse PDU data */
 			err = MB_PDU_Parser(pPDU, pResp, &resp_len);
@@ -129,7 +129,7 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb, uint16_t len)
 
 			    /*Send response*/
 			    mb->tx_buf[0] = mb->addr;
-			    tmp_crc = ModRTU_CRC(mb->tx_buf, 1 + resp_len);
+			    tmp_crc = MBRTU_CRC(mb->tx_buf, 1 + resp_len);
 			    U162ARR(tmp_crc, &mb->tx_buf[1 + resp_len]);
 
 			    MBRTU_LolevelSend(mb, 1 + resp_len + 2);
