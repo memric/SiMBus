@@ -6,7 +6,6 @@
  */
 
 #include "mbrtu.h"
-#include "mb_crc.h"
 #include "mb_regs.h"
 
 #define MODBUS_MSG_MIN_LEN		6	/*Minimal message length (addr + func + strt addr + CRC)*/
@@ -21,6 +20,7 @@
 
 static void MBRTU_Parser(MBRTU_Handle_t *mb, uint16_t len);
 static void MBRTU_LolevelSend(MBRTU_Handle_t *mb, uint32_t len);
+extern uint16_t MBRTU_CRC(uint8_t *buf, uint16_t len);
 
 /**
  * @brief       Initializes Modbus RTU module and starts data reception
