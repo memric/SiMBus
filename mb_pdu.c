@@ -257,7 +257,7 @@ MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen)
             if (err == MODBUS_ERR_OK)
             {
                 /*Copy function, start address, quantity of registers*/
-                memcpy(pReqData, pRespData, 5);
+                memcpy(pRespData, pReqData, 5);
                 *pRespLen = 5;
             }
         }
