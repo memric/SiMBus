@@ -24,7 +24,7 @@
 #define MODBUS_ERR_INTFS			11
 
 #define ARR2U16(a)					(uint16_t) (*(a) << 8) | *( (a)+1 )
-#define U162ARR(b,a)				*(a) = (uint8_t) ( (b) >> 8 ); *(a+1) = (uint8_t) ( (b) & 0xff )
+#define U162ARR(b,a)				*(a) = (uint8_t) ( ((b) >> 8) & 0xff ); *(a+1) = (uint8_t) ( (b) & 0xff )
 
 MBerror MB_PDU_Parser(uint8_t *pReqData, uint8_t *pRespData, uint16_t *pRespLen);
 
