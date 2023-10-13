@@ -26,11 +26,11 @@ def str_field2int(field):
 
 #Adds separation between str1 and str2 to aling str2 to pos
 def tab2pos(str1, str2, pos):
-    out_str = str1;
+    out_str = str1
     for i in range(pos - len(str1)):
-        out_str += ' ';
-    out_str += str2;
-    return out_str;
+        out_str += ' '
+    out_str += str2
+    return out_str
 
 def main(argv=None): # IGNORE:C0111
     '''Command line options.'''
@@ -67,6 +67,9 @@ def main(argv=None): # IGNORE:C0111
         console.print("Check input file")
         
         '''Check CSV table content'''
+        if not ('Name' in reader):
+            console.print("Registers table does not contain a key \"Name\"")
+
         try:
             for row in reader:
                 if row['Name'].upper() == 'RESERVED':
@@ -146,7 +149,7 @@ def main(argv=None): # IGNORE:C0111
         
         reg_map_defs = ""
         #get closest tab position index
-        tab_pos_ind = 4*((max_name_len+ 17 + 3)//4) + 4;
+        tab_pos_ind = 4*((max_name_len+ 17 + 3)//4) + 4
         
         for row in reg_map:
             reg_name = row['Name'].upper()
