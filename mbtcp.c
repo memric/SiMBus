@@ -165,7 +165,7 @@ static void MBTCP_Thread(void *arg)
             /*receive data*/
             recv_len = recv(r_sock, mbtcp->rx_buf, mbtcp->rx_buf_size, 0);
 
-            if (recv_len < 0)
+            if (recv_len <= 0)
             {
                 break;
             }

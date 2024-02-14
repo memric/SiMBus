@@ -225,7 +225,7 @@ static uint32_t MBRegCheckVal(uint16_t addr, uint16_t val)
 /**
  * @brief Register update callback
  */
-__weak void MBRegUpdated(uint16_t addr, uint16_t val)
+void MBRegUpdated(uint16_t addr, uint16_t val)
 {
 
 }
@@ -233,7 +233,7 @@ __weak void MBRegUpdated(uint16_t addr, uint16_t val)
 /**
  * @brief Locks access to registers
  */
-__weak void MBRegLock(void)
+void MBRegLock(void)
 {
 	/*Take mutex here*/
 }
@@ -241,7 +241,7 @@ __weak void MBRegLock(void)
 /**
  * @brief Unlocks access to registers
  */
-__weak void MBRegUnlock(void)
+void MBRegUnlock(void)
 {
 	/*Give mutex here*/
 }

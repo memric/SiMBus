@@ -43,6 +43,7 @@ def main(argv=None): # IGNORE:C0111
     try:
         # Setup argument parser
         parser = ArgumentParser(description="Register map generator.")
+        parser.add_argument('-p', '--python', dest='python', action='store_true', help='Python file generation.')
         parser.add_argument("file", help=".csv input file")
 
         # Process arguments
@@ -146,7 +147,7 @@ def main(argv=None): # IGNORE:C0111
         
         reg_map_defs = ""
         #get closest tab position index
-        tab_pos_ind = 4*((max_name_len+ 17 + 3)//4) + 4;
+        tab_pos_ind = 4*((max_name_len+ 17 + 3)//4) + 4
         
         for row in reg_map:
             reg_name = row['Name'].upper()
@@ -235,6 +236,55 @@ def main(argv=None): # IGNORE:C0111
         mbr_f.write(mbr_content)
         
         console.print("[green]File mb_regs.c is created")
+
+        """ Generate python file """
+        if args.python == True:
+            rmh_f = open('mb_regs.py', 'w', newline='')
+
+            #open template file
+            with open("mb_regs_py.template") as ht:
+                rmh_template = string.Template(ht.read())
+        
+            reg_map_defs = ""
+             #get closest tab position index
+            tab_pos_ind = 4*((max_name_len+ 9 + 3)//4) + 4
+        
+            for row in reg_map:
+                reg_name = row['Name'].upper()
+                reg_name = reg_name.replace(' ','_')
+                
+                if reg_name == 'RESERVED':
+                    continue
+                
+                addr = row['Address']
+                min = row['Min']
+                max = row['Max']
+                default = row['Default']
+                oper = row['Mode']
+                
+                if oper == 'R':
+                    oper_mode = 'REG_OPT_R_ONLY'
+                elif oper == 'W':
+                    oper_mode = 'REG_OPT_WR_ONLY'
+                elif oper == 'RW' or oper == 'R/W':
+                    oper_mode = 'REG_OPT_ALL'
+                    
+                reg_map_defs += "\"\"\" Register: %s\r\n Addr: %s; Min: %d; Max: %d; Default: %d; Oper: %s \"\"\"\r\n"%(row['Comment'], hex(addr), min, max, default, oper)
+                reg_map_defs += tab2pos("REG_%s_ADDR"%(reg_name), " = %s\r\n"%(hex(addr)), tab_pos_ind)
+                reg_map_defs += tab2pos("REG_%s_MIN"%(reg_name), " = %s\r\n"%(min), tab_pos_ind)
+                reg_map_defs += tab2pos("REG_%s_MAX"%(reg_name), " = %s\r\n"%(max), tab_pos_ind)
+                reg_map_defs += tab2pos("REG_%s_DEF"%(reg_name), " = %s\r\n"%(default), tab_pos_ind)
+                reg_map_defs += tab2pos("REG_%s_OPT"%(reg_name), " = %s\r\n"%(oper_mode), tab_pos_ind)
+                reg_map_defs += "\r\n"
             
+            #fill template and write to file
+            rmh_content = rmh_template.safe_substitute(date=datetime.date.today(), \
+                                                       register_map = reg_map_defs, \
+                                                       reg_last_addr = hex(last_reg_addr), \
+                                                       reg_num = reg_num)
+            rmh_f.write(rmh_content)
+            
+            console.print("[green]File mb_regs.py is created")
+
 if __name__ == "__main__":
     sys.exit(main())

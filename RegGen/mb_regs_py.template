@@ -1,0 +1,20 @@
+"""
+This file is created automatically.
+Created on: ${date}
+"""
+
+REG_OPT_UR					= 0x01
+REG_OPT_UWR					= 0x02
+REG_OPT_SUR					= 0x04
+REG_OPT_SUWR				= 0x08
+REG_OPT_R_ONLY				= (REG_OPT_UR | REG_OPT_SUR)
+REG_OPT_WR_ONLY				= (REG_OPT_UWR | REG_OPT_SUWR)
+REG_OPT_UR_SUWR				= (REG_OPT_UR | REG_OPT_SUR | REG_OPT_SUWR)
+REG_OPT_SU_ONLY				= (REG_OPT_SUR | REG_OPT_SUWR)
+REG_OPT_ALL					= (REG_OPT_UR | REG_OPT_UWR | REG_OPT_SUR | REG_OPT_SUWR)
+
+${register_map}
+REG_LAST_ADDR	= ${reg_last_addr} # Last register address
+REG_NUM			= ${reg_num} # Total registers number
+
+""" USER CODE BEGIN """
