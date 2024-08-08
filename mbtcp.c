@@ -1,30 +1,30 @@
 /*
- * MBTCP.c
+ * mbtcp.c
  *
  *  Created on: 6.05.2020
  *      Author: Valeriy Chudnikov
  */
 
 #include "mbtcp.h"
-#include "mb_regs.h"
 #include "FreeRTOS.h"
-#include "task.h"
 #include "lwip/sockets.h"
+#include "mb_regs.h"
+#include "task.h"
 #include <string.h>
 
-#define MBAP_SIZE                   7                   /* MBAP header size */
-#define EXCEPT_SIZE                 (MBAP_SIZE + 1 + 1) /*MBAP + Func code + Err*/
+#define MBAP_SIZE   7                   /* MBAP header size */
+#define EXCEPT_SIZE (MBAP_SIZE + 1 + 1) /*MBAP + Func code + Err*/
 
 #ifndef MBTCP_SERVER_PORT
-#define MBTCP_SERVER_PORT           502
+#define MBTCP_SERVER_PORT 502
 #endif
 
 #ifndef MODBUS_TCP_TASK_STACK
-#define MODBUS_TCP_TASK_STACK       512
+#define MODBUS_TCP_TASK_STACK 512
 #endif
 
 #ifndef MODBUS_TCP_TASK_PRIORITY
-#define MODBUS_TCP_TASK_PRIORITY    (tskIDLE_PRIORITY + 3)
+#define MODBUS_TCP_TASK_PRIORITY (tskIDLE_PRIORITY + 3)
 #endif
 
 /* MBAP Header
@@ -33,11 +33,12 @@
  * Length: 2 bytes
  * Unit ID: 1 byte
  */
-typedef struct {
+typedef struct
+{
     uint16_t tran_id; /*transaction ID*/
     uint16_t prot_id; /*protocol ID*/
-    uint16_t plen; /*length*/
-    uint8_t unit_id; /*Unit ID*/
+    uint16_t plen;    /*length*/
+    uint8_t unit_id;  /*Unit ID*/
 } mbap_t;
 
 static TaskHandle_t hMBTCP_Task = NULL;
@@ -72,19 +73,16 @@ MBerror MBTCP_Init(MBTCP_Handle_t *mbtcp)
     MODBUS_TRACE("TCP Modbus Initialization\r\n");
 
 #if MODBUS_REGS_ENABLE
-	if (MBRegInit(NULL) != MODBUS_ERR_OK)
-	{
-		return MODBUS_ERR_SYS;
-	}
+    if (MBRegInit(NULL) != MODBUS_ERR_OK)
+    {
+        return MODBUS_ERR_SYS;
+    }
 #endif
 
     /* Create ModbusTCP thread */
-    if (xTaskCreate(MBTCP_Thread,
-                    "Modbus task",
-                    MODBUS_TCP_TASK_STACK,
-                    mbtcp,
-                    MODBUS_TCP_TASK_PRIORITY,
-                    &hMBTCP_Task) != pdPASS)
+    if (xTaskCreate(
+            MBTCP_Thread, "Modbus task", MODBUS_TCP_TASK_STACK, mbtcp, MODBUS_TCP_TASK_PRIORITY, &hMBTCP_Task
+        ) != pdPASS)
     {
         MODBUS_TRACE("TCP Modbus Task Initialization failure\r\n");
         return MODBUS_ERR_SYS;
@@ -107,7 +105,7 @@ void MBTCP_Deinit(void)
  */
 static void MBTCP_Thread(void *arg)
 {
-    MBTCP_Handle_t *mbtcp = (MBTCP_Handle_t*) arg;
+    MBTCP_Handle_t *mbtcp = (MBTCP_Handle_t *) arg;
     int32_t recv_len;
 
     MODBUS_TRACE("Starting ModBus TCP at port: %d\r\n", MBTCP_SERVER_PORT);
@@ -123,8 +121,8 @@ static void MBTCP_Thread(void *arg)
     struct sockaddr_in addr;
     /* set up address to connect to */
     memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(MBTCP_SERVER_PORT);
+    addr.sin_family      = AF_INET;
+    addr.sin_port        = htons(MBTCP_SERVER_PORT);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     /* Bind connection */
@@ -146,7 +144,7 @@ static void MBTCP_Thread(void *arg)
         socklen_t addr_len;
 
         /* Grab new connection. */
-        int r_sock = accept(sock, (struct sockaddr* ) &client_addr, &addr_len);
+        int r_sock = accept(sock, (struct sockaddr *) &client_addr, &addr_len);
 
         if (r_sock == -1)
         {
@@ -199,7 +197,7 @@ static uint16_t MBTCP_Response(MBTCP_Handle_t *mbtcp, mbap_t *mbap_header, uint3
 {
     MB_ASSERT(mbtcp->tx_buf_size >= MBAP_SIZE + resp_len);
 
-    uint8_t *outdata = mbtcp->tx_buf;
+    uint8_t *outdata  = mbtcp->tx_buf;
 
     mbap_header->plen = resp_len + 1; /* PDU len + Unit ID */
 
@@ -234,7 +232,7 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
     mbap_t mbap;
     mbap.tran_id = ARR2U16(indata);     /*transaction ID*/
     mbap.prot_id = ARR2U16(&indata[2]); /*protocol ID*/
-    mbap.plen = ARR2U16(&indata[4]);    /*length*/
+    mbap.plen    = ARR2U16(&indata[4]); /*length*/
     mbap.unit_id = indata[6];           /*Unit ID*/
 
     if (mbap.prot_id != 0)
@@ -250,10 +248,10 @@ static uint32_t MBTCP_PacketParser(MBTCP_Handle_t *mbtcp, uint32_t inlen)
     }
 
     /*--PDU---*/
-    uint8_t *pPDU = &indata[MBAP_SIZE];
+    uint8_t *pPDU  = &indata[MBAP_SIZE];
     uint8_t *pResp = &mbtcp->tx_buf[MBAP_SIZE];
 
-    err = MB_PDU_Parser(pPDU, pResp, &resp_len);
+    err            = MB_PDU_Parser(pPDU, pResp, &resp_len);
 
     if (resp_len > 0)
     {

@@ -6,38 +6,35 @@
 
 #include "mb_regs.h"
 
-#define REG_READ		0x01
-#define REG_WRITE		0x02
+#define REG_READ    0x01
+#define REG_WRITE   0x02
 
-#define REG_PERM_U		0x01
-#define REG_PERM_SU		0x04
+#define REG_PERM_U  0x01
+#define REG_PERM_SU 0x04
 
-typedef struct {
-	uint8_t opt;
-	uint16_t min;
-	uint16_t max;
-	uint16_t def;
+typedef struct
+{
+    uint8_t opt;
+    uint16_t min;
+    uint16_t max;
+    uint16_t def;
 } RegOpt_t;
 
 /**
  * @brief Registers options and min/max/def values
  */
 static const RegOpt_t MBRegOpt[REG_NUM] = {
-	{REG_STATUS_OPT, REG_STATUS_MIN, REG_STATUS_MAX, REG_STATUS_DEF},
-	{REG_VALUE1_OPT, REG_VALUE1_MIN, REG_VALUE1_MAX, REG_VALUE1_DEF},
-	{REG_VALUE2_OPT, REG_VALUE2_MIN, REG_VALUE2_MAX, REG_VALUE2_DEF}
+    {REG_STATUS_OPT, REG_STATUS_MIN, REG_STATUS_MAX, REG_STATUS_DEF},
+    {REG_VALUE1_OPT, REG_VALUE1_MIN, REG_VALUE1_MAX, REG_VALUE1_DEF},
+    {REG_VALUE2_OPT, REG_VALUE2_MIN, REG_VALUE2_MAX, REG_VALUE2_DEF}
 };
 
 /**
  * @brief Registers array initialization with default values
  */
-static uint16_t MBRegVal[REG_NUM] = {
-	REG_STATUS_DEF,
-	REG_VALUE1_DEF,
-	REG_VALUE2_DEF
-};
+static uint16_t MBRegVal[REG_NUM] = {REG_STATUS_DEF, REG_VALUE1_DEF, REG_VALUE2_DEF};
 
-static uint16_t regs_inited = 0;
+static uint16_t regs_inited       = 0;
 
 static uint32_t MBRegCheckOp(uint16_t addr, uint8_t op);
 static uint32_t MBRegCheckVal(uint16_t addr, uint16_t val);
@@ -49,16 +46,16 @@ static uint32_t MBRegCheckVal(uint16_t addr, uint16_t val);
  */
 MBerror MBRegInit(void *arg)
 {
-	(void) arg;
+    (void) arg;
 
-	if (!regs_inited)
-	{
-		/* USER CODE BEGIN */
+    if (!regs_inited)
+    {
+        /* USER CODE BEGIN */
 
-		/* USER CODE END */
-	}
+        /* USER CODE END */
+    }
 
-	return MODBUS_ERR_OK;
+    return MODBUS_ERR_OK;
 }
 
 /**
@@ -70,37 +67,37 @@ MBerror MBRegInit(void *arg)
  */
 MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval)
 {
-	MBerror err = MODBUS_ERR_OK;
-	uint16_t i;
+    MBerror err = MODBUS_ERR_OK;
+    uint16_t i;
 
-	MBRegLock();
+    MBRegLock();
 
-	MODBUS_TRACE("Func. 03/04 (Read regs). Addr: %d, Num: %d\r\n", addr, num);
+    MODBUS_TRACE("Func. 03/04 (Read regs). Addr: %d, Num: %d\r\n", addr, num);
 
-	if ((addr < REG_NUM) && (addr + num <= REG_NUM))
-	{
-		for (i = 0; i < num; i++)
-		{
-			if (!MBRegCheckOp(addr + i, REG_READ))
-			{
-				err = MODBUS_ERR_ILLEGADDR;
-				break;
-			}
-		}
-	}
-	else
-	{
-		err = MODBUS_ERR_ILLEGADDR;
-	}
+    if ((addr < REG_NUM) && (addr + num <= REG_NUM))
+    {
+        for (i = 0; i < num; i++)
+        {
+            if (!MBRegCheckOp(addr + i, REG_READ))
+            {
+                err = MODBUS_ERR_ILLEGADDR;
+                break;
+            }
+        }
+    }
+    else
+    {
+        err = MODBUS_ERR_ILLEGADDR;
+    }
 
-	if (err == MODBUS_ERR_OK)
-	{
-		*pval = &MBRegVal[addr];
-	}
+    if (err == MODBUS_ERR_OK)
+    {
+        *pval = &MBRegVal[addr];
+    }
 
-	MBRegUnlock();
+    MBRegUnlock();
 
-	return err;
+    return err;
 }
 
 /**
@@ -112,47 +109,47 @@ MBerror MBRegReadCallback(uint16_t addr, uint16_t num, uint16_t **pval)
  */
 MBerror MBRegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval)
 {
-	MBerror err = MODBUS_ERR_OK;
-	uint32_t i;
+    MBerror err = MODBUS_ERR_OK;
+    uint32_t i;
 
-	MBRegLock();
+    MBRegLock();
 
-	MODBUS_TRACE("Func. 16 (Preset regs). Addr: %d, Num: %d\r\n", addr, num);
+    MODBUS_TRACE("Func. 16 (Preset regs). Addr: %d, Num: %d\r\n", addr, num);
 
-	if ((addr < REG_NUM) && (addr + num <= REG_NUM))
-	{
-		for (i = 0; i < num; i++)
-		{
-			/*Check permission & value*/
-			if (MBRegCheckOp(addr, REG_WRITE))
-			{
-				if (MBRegCheckVal(addr, ARR2U16(pval)))
-				{
-					MBRegVal[addr] = ARR2U16(pval);
-					MBRegUpdated(addr, ARR2U16(pval));
-				}
-				else
-				{
-					err = MODBUS_ERR_ILLEGVAL;
-				}
-			}
-			else
-			{
-				err = MODBUS_ERR_ILLEGADDR;
-			}
+    if ((addr < REG_NUM) && (addr + num <= REG_NUM))
+    {
+        for (i = 0; i < num; i++)
+        {
+            /*Check permission & value*/
+            if (MBRegCheckOp(addr, REG_WRITE))
+            {
+                if (MBRegCheckVal(addr, ARR2U16(pval)))
+                {
+                    MBRegVal[addr] = ARR2U16(pval);
+                    MBRegUpdated(addr, ARR2U16(pval));
+                }
+                else
+                {
+                    err = MODBUS_ERR_ILLEGVAL;
+                }
+            }
+            else
+            {
+                err = MODBUS_ERR_ILLEGADDR;
+            }
 
-			addr++;
-			pval += 2;
-		}
-	}
-	else
-	{
-		err = MODBUS_ERR_ILLEGADDR;
-	}
+            addr++;
+            pval += 2;
+        }
+    }
+    else
+    {
+        err = MODBUS_ERR_ILLEGADDR;
+    }
 
-	MBRegUnlock();
+    MBRegUnlock();
 
-	return err;
+    return err;
 }
 
 /**
@@ -163,19 +160,19 @@ MBerror MBRegsWriteCallback(uint16_t addr, uint16_t num, uint8_t *pval)
  */
 void MBRegSetValue(uint16_t addr, uint16_t val, MBerror *err)
 {
-	MBRegLock();
+    MBRegLock();
 
-	if (addr < REG_NUM)
-	{
-		*err = MODBUS_ERR_OK;
-		MBRegVal[addr] = val;
-	}
-	else
-	{
-		*err = MODBUS_ERR_ILLEGADDR;
-	}
+    if (addr < REG_NUM)
+    {
+        *err           = MODBUS_ERR_OK;
+        MBRegVal[addr] = val;
+    }
+    else
+    {
+        *err = MODBUS_ERR_ILLEGADDR;
+    }
 
-	MBRegUnlock();
+    MBRegUnlock();
 }
 
 /**
@@ -186,23 +183,23 @@ void MBRegSetValue(uint16_t addr, uint16_t val, MBerror *err)
  */
 uint16_t MBRegGetValue(uint16_t addr, MBerror *err)
 {
-	uint16_t retval = 0;
-	MBRegLock();
+    uint16_t retval = 0;
+    MBRegLock();
 
-	if (addr < REG_NUM)
-	{
-		*err = MODBUS_ERR_OK;
-		retval = MBRegVal[addr];
-	}
-	else
-	{
-		*err = MODBUS_ERR_ILLEGADDR;
-		retval = 0;
-	}
+    if (addr < REG_NUM)
+    {
+        *err   = MODBUS_ERR_OK;
+        retval = MBRegVal[addr];
+    }
+    else
+    {
+        *err   = MODBUS_ERR_ILLEGADDR;
+        retval = 0;
+    }
 
-	MBRegUnlock();
+    MBRegUnlock();
 
-	return retval;
+    return retval;
 }
 
 /**
@@ -213,7 +210,7 @@ uint16_t MBRegGetValue(uint16_t addr, MBerror *err)
  */
 static uint32_t MBRegCheckOp(uint16_t addr, uint8_t op)
 {
-	return MBRegOpt[addr].opt & op;
+    return MBRegOpt[addr].opt & op;
 }
 
 /**
@@ -224,7 +221,7 @@ static uint32_t MBRegCheckOp(uint16_t addr, uint8_t op)
  */
 static uint32_t MBRegCheckVal(uint16_t addr, uint16_t val)
 {
-	return (val >= MBRegOpt[addr].min) & (val <= MBRegOpt[addr].max);
+    return (val >= MBRegOpt[addr].min) & (val <= MBRegOpt[addr].max);
 }
 
 /**
@@ -232,7 +229,6 @@ static uint32_t MBRegCheckVal(uint16_t addr, uint16_t val)
  */
 __weak void MBRegUpdated(uint16_t addr, uint16_t val)
 {
-
 }
 
 /**
@@ -240,7 +236,7 @@ __weak void MBRegUpdated(uint16_t addr, uint16_t val)
  */
 __weak void MBRegLock(void)
 {
-	/*Take mutex here*/
+    /*Take mutex here*/
 }
 
 /**
@@ -248,5 +244,5 @@ __weak void MBRegLock(void)
  */
 __weak void MBRegUnlock(void)
 {
-	/*Give mutex here*/
+    /*Give mutex here*/
 }

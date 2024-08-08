@@ -8,11 +8,11 @@
 #include "mbrtu.h"
 #include "mb_regs.h"
 
-#define MODBUS_MSG_MIN_LEN		6	/*Minimal message length (addr + func + strt addr + CRC)*/
+#define MODBUS_MSG_MIN_LEN 6 /* Minimal message length (addr + func + strt addr + CRC) */
 
 #if MODBUS_SOFT_DE
-#define DE_HIGH()				mb->set_de(DEHIGH)
-#define DE_LOW()				mb->set_de(DELOW)
+#define DE_HIGH() mb->set_de(DEHIGH)
+#define DE_LOW()  mb->set_de(DELOW)
 #else
 #define DE_HIGH()
 #define DE_LOW()
@@ -29,35 +29,35 @@ extern uint16_t MBRTU_CRC(uint8_t *buf, uint16_t len);
  */
 MBerror MBRTU_Init(MBRTU_Handle_t *mb)
 {
-	MB_ASSERT(mb != NULL);
-	MB_ASSERT(mb->addr > 0);
-	MB_ASSERT(mb->rx_buf_len > 0);
-	MB_ASSERT(mb->tx_func != NULL);
-	MB_ASSERT(mb->rx_func != NULL);
-	MB_ASSERT(mb->rx_stop != NULL);
+    MB_ASSERT(mb != NULL);
+    MB_ASSERT(mb->addr > 0);
+    MB_ASSERT(mb->rx_buf_len > 0);
+    MB_ASSERT(mb->tx_func != NULL);
+    MB_ASSERT(mb->rx_func != NULL);
+    MB_ASSERT(mb->rx_stop != NULL);
 #if MODBUS_SOFT_DE
-	MB_ASSERT(mb->set_de != NULL);
+    MB_ASSERT(mb->set_de != NULL);
 #endif
 #if MODBUS_USE_US_TIMER
-	MB_ASSERT(mb->us_sleep != NULL);
+    MB_ASSERT(mb->us_sleep != NULL);
 #endif
 
-	mb->rx_byte = mb->rx_buf;
-	mb->mbmode = RX;
+    mb->rx_byte = mb->rx_buf;
+    mb->mbmode  = RX;
 
-	MODBUS_TRACE("Starting Modbus RTU with Address %d\r\n", mb->addr);
+    MODBUS_TRACE("Starting Modbus RTU with Address %d\r\n", mb->addr);
 
-	DE_LOW();
-	mb->rx_func(mb->rx_byte);
+    DE_LOW();
+    mb->rx_func(mb->rx_byte);
 
 #if MODBUS_REGS_ENABLE
-	if (MBRegInit(NULL) != MODBUS_ERR_OK)
-	{
-		return MODBUS_ERR_SYS;
-	}
+    if (MBRegInit(NULL) != MODBUS_ERR_OK)
+    {
+        return MODBUS_ERR_SYS;
+    }
 #endif
 
-	return MODBUS_ERR_OK;
+    return MODBUS_ERR_OK;
 }
 
 /**
@@ -67,29 +67,29 @@ MBerror MBRTU_Init(MBRTU_Handle_t *mb)
  */
 void MBRTU_Poll(MBRTU_Handle_t *mb)
 {
-	MB_ASSERT(mb != NULL);
+    MB_ASSERT(mb != NULL);
 
-	if (mb->mbmode == RX)
-	{
-		if ((mb->rx_byte > mb->rx_buf) && ((MODBUS_GET_TICK - mb->last_rx_byte_time) > MODBUS_RXWAIT_TIME))
-		{
-			mb->rx_stop();
-			mb->mbmode = TX;
+    if (mb->mbmode == RX)
+    {
+        if ((mb->rx_byte > mb->rx_buf) && ((MODBUS_GET_TICK - mb->last_rx_byte_time) > MODBUS_RXWAIT_TIME))
+        {
+            mb->rx_stop();
+            mb->mbmode      = TX;
 
-			uint16_t rx_len = (uint16_t) (mb->rx_byte -  mb->rx_buf);
+            uint16_t rx_len = (uint16_t) (mb->rx_byte - mb->rx_buf);
 
-			/*Check message minimal length*/
-			if (rx_len > MODBUS_MSG_MIN_LEN)
-			{
-				/*Parse incoming message*/
-				MBRTU_Parser(mb, rx_len);
-			}
+            /*Check message minimal length*/
+            if (rx_len > MODBUS_MSG_MIN_LEN)
+            {
+                /*Parse incoming message*/
+                MBRTU_Parser(mb, rx_len);
+            }
 
-			mb->rx_byte = mb->rx_buf;
-			mb->mbmode = RX;
-			mb->rx_func(mb->rx_byte);
-		}
-	}
+            mb->rx_byte = mb->rx_buf;
+            mb->mbmode  = RX;
+            mb->rx_func(mb->rx_byte);
+        }
+    }
 }
 
 /**
@@ -98,48 +98,48 @@ void MBRTU_Poll(MBRTU_Handle_t *mb)
  */
 static void MBRTU_Parser(MBRTU_Handle_t *mb, uint16_t len)
 {
-	/* Packet ADU structure
-	 * N bytes - PDU
-	 * 16bit - CRC
-	 */
+    /* Packet ADU structure
+     * N bytes - PDU
+     * 16bit - CRC
+     */
 
-	uint16_t tmp_crc;
-	MBerror err = MODBUS_ERR_OK;
+    uint16_t tmp_crc;
+    MBerror err = MODBUS_ERR_OK;
 
-	/*Check address first*/
-	if (mb->rx_buf[0] == mb->addr)
-	{
-		uint8_t *pPDU = &mb->rx_buf[1];
-		uint8_t *pResp = &mb->tx_buf[1];
-		uint16_t resp_len = 0;
-		tmp_crc = ARR2U16(&mb->rx_buf[len - 2]);
+    /*Check address first*/
+    if (mb->rx_buf[0] == mb->addr)
+    {
+        uint8_t *pPDU     = &mb->rx_buf[1];
+        uint8_t *pResp    = &mb->tx_buf[1];
+        uint16_t resp_len = 0;
+        tmp_crc           = ARR2U16(&mb->rx_buf[len - 2]);
 
-		/*Check CRC with incoming data*/
-		if (tmp_crc == MBRTU_CRC(mb->rx_buf, len - 2))
-		{
-		    /* Parse PDU data */
-			err = MB_PDU_Parser(pPDU, pResp, &resp_len);
+        /*Check CRC with incoming data*/
+        if (tmp_crc == MBRTU_CRC(mb->rx_buf, len - 2))
+        {
+            /* Parse PDU data */
+            err = MB_PDU_Parser(pPDU, pResp, &resp_len);
 
-			if (resp_len > 0)
-			{
-			    if (err != MODBUS_ERR_OK)
-			    {
-			        MODBUS_TRACE("Function error: %d\r\n", err);
-			    }
+            if (resp_len > 0)
+            {
+                if (err != MODBUS_ERR_OK)
+                {
+                    MODBUS_TRACE("Function error: %d\r\n", err);
+                }
 
-			    /*Send response*/
-			    mb->tx_buf[0] = mb->addr;
-			    tmp_crc = MBRTU_CRC(mb->tx_buf, 1 + resp_len);
-			    U162ARR(tmp_crc, &mb->tx_buf[1 + resp_len]);
+                /*Send response*/
+                mb->tx_buf[0] = mb->addr;
+                tmp_crc       = MBRTU_CRC(mb->tx_buf, 1 + resp_len);
+                U162ARR(tmp_crc, &mb->tx_buf[1 + resp_len]);
 
-			    MBRTU_LolevelSend(mb, 1 + resp_len + 2);
-			}
-		}
-		else
-		{
-			MODBUS_TRACE("Incorrect CRC\r\n");
-		}
-	}
+                MBRTU_LolevelSend(mb, 1 + resp_len + 2);
+            }
+        }
+        else
+        {
+            MODBUS_TRACE("Incorrect CRC\r\n");
+        }
+    }
 }
 
 /**
@@ -149,19 +149,19 @@ static void MBRTU_Parser(MBRTU_Handle_t *mb, uint16_t len)
  */
 static void MBRTU_LolevelSend(MBRTU_Handle_t *mb, uint32_t len)
 {
-	DE_HIGH();
+    DE_HIGH();
 
 #if MODBUS_USE_US_TIMER
-	mb->us_sleep(100);
+    mb->us_sleep(100);
 #endif
 
-	mb->tx_func(mb->tx_buf, len);
+    mb->tx_func(mb->tx_buf, len);
 
 #if MODBUS_USE_US_TIMER
-	mb->us_sleep(100);
+    mb->us_sleep(100);
 #endif
 
-	DE_LOW();
+    DE_LOW();
 }
 
 /**
@@ -170,22 +170,22 @@ static void MBRTU_LolevelSend(MBRTU_Handle_t *mb, uint32_t len)
  */
 void MBRTU_ByteReceivedCallback(MBRTU_Handle_t *mb)
 {
-	MB_ASSERT(mb != NULL);
+    MB_ASSERT(mb != NULL);
 
-	if (mb->mbmode == RX)
-	{
-		/*receive next byte*/
-		mb->rx_byte++;
-		if (mb->rx_byte > &mb->rx_buf[mb->rx_buf_len - 1])
-		{
-			/* not normal case*/
-			mb->rx_byte = mb->rx_buf;
-		}
+    if (mb->mbmode == RX)
+    {
+        /*receive next byte*/
+        mb->rx_byte++;
+        if (mb->rx_byte > &mb->rx_buf[mb->rx_buf_len - 1])
+        {
+            /* not normal case*/
+            mb->rx_byte = mb->rx_buf;
+        }
 
-		/*Receive next byte*/
-		mb->rx_func(mb->rx_byte);
-		mb->last_rx_byte_time = MODBUS_GET_TICK;
-	}
+        /*Receive next byte*/
+        mb->rx_func(mb->rx_byte);
+        mb->last_rx_byte_time = MODBUS_GET_TICK;
+    }
 }
 
 #if MODBUS_NONBLOCKING_TX
@@ -195,10 +195,10 @@ void MBRTU_ByteReceivedCallback(MBRTU_Handle_t *mb)
  */
 void MBRTU_tx_cmplt(MBRTU_Handle_t *mb)
 {
-	mb->last_tx_time = MODBUS_GET_TICK;
-	mb->mbmode = RX;
+    mb->last_tx_time = MODBUS_GET_TICK;
+    mb->mbmode       = RX;
 
-	DE_LOW();
+    DE_LOW();
 }
 #endif
 
@@ -208,13 +208,13 @@ void MBRTU_tx_cmplt(MBRTU_Handle_t *mb)
  */
 void MBRTU_error(MBRTU_Handle_t *mb)
 {
-	MB_ASSERT(mb != NULL);
+    MB_ASSERT(mb != NULL);
 
-	mb->rx_stop();
+    mb->rx_stop();
 
-	mb->rx_byte = mb->rx_buf;
-	mb->mbmode = RX;
-	mb->rx_func(mb->rx_byte);
+    mb->rx_byte = mb->rx_buf;
+    mb->mbmode  = RX;
+    mb->rx_func(mb->rx_byte);
 
-	DE_LOW();
+    DE_LOW();
 }
